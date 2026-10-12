@@ -39,6 +39,12 @@ MIN_BUCKET_N = 2000
 MIN_TYPE_N = 10
 # Fraction of each bucket held out when `compute_ece=True`. Unused otherwise.
 ECE_HOLDOUT_FRAC = 0.2
+# Log-space search margin, in e-folds, outside the `[TEMP_MIN, TEMP_MAX]` answer band.
+# The optimiser runs on log T with no bound of its own; any scale this far below
+# `TEMP_MIN` already clamps to `TEMP_MIN`, so the band costs no real minimum, while an
+# unbounded walk reaches `exp()` underflow (~-88 in float32), divides the objective by
+# zero, and hands `clamp_temperature` a NaN -- which it reports as the neutral 1.0.
+LOG_T_MARGIN = 10.0
 # Payload schema. Files written before identity was recorded have no version key;
 # readers treat that absence as version 1.
 CALIBRATION_VERSION = 2
@@ -85,17 +91,21 @@ def _validated_pair(logits, target, k=None):
     return logits, target, int(k)
 
 
-def _pairs_to_tensors(pairs: Sequence) -> Tuple[torch.Tensor, torch.Tensor]:
-    kmax = max(len(_vec(z)) for z, _ in pairs)
-    z_mat = torch.full((len(pairs), kmax), -1e4)
-    t_mat = torch.zeros((len(pairs), kmax))
-    for i, (z, t) in enumerate(pairs):
-        z = _vec(z)
-        t = _vec(t)
-        n = len(z)
-        z_mat[i, :n] = torch.from_numpy(np.ascontiguousarray(z[:n]))
-        t_mat[i, :n] = torch.from_numpy(np.ascontiguousarray(t[:n]))
-    return z_mat, t_mat
+def _pairs_by_width(pairs: Sequence) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+    """One (logits, target) matrix per distinct option count, narrowest first.
+
+    A ragged pool -- a question type holding 2-option and 12-option decisions -- cannot be
+    one matrix. Any value used to square off the short rows is a real column in the single
+    softmax every row then goes through, so it competes for the probability mass the fit is
+    trying to allocate; at `-1e4` it wins the row it pads once the row's own logits drop
+    below it, and it overflows to `inf`/`NaN` in float32 when the scale gets small. Grouping
+    keeps each row inside its own option count, which is what the objective means.
+    """
+    groups: Dict[int, List[Tuple[np.ndarray, np.ndarray]]] = {}
+    for z, t in pairs:
+        groups.setdefault(len(_vec(z)), []).append((_vec(z), _vec(t)))
+    return [(torch.from_numpy(np.stack([z for z, _ in groups[w]])),
+             torch.from_numpy(np.stack([t for _t, t in groups[w]]))) for w in sorted(groups)]
 
 
 def fit_one_temperature(pairs: Sequence, min_n: Optional[int] = None) -> float:
@@ -103,6 +113,10 @@ def fit_one_temperature(pairs: Sequence, min_n: Optional[int] = None) -> float:
 
     The result is `clamp_temperature` of the optimised scale, so it lies in
     `[TEMP_MIN, TEMP_MAX]` (or is the neutral 1.0 when the value is not a number).
+    The search is bounded to `LOG_T_MARGIN` e-folds outside that band, which covers any
+    minimum the answer can use; past it the float32 scale drifts toward `exp()` underflow,
+    where the objective divides by zero and every gradient becomes NaN, and
+    `clamp_temperature` reads that NaN back as the neutral 1.0.
     Returns 1.0 when fewer than `min_n` pairs are given. `min_n` defaults to
     `MIN_BUCKET_N` (the per-bucket floor). Type-level fits pass `MIN_TYPE_N`, which
     is lower, so a dataset that fills no bucket still gets a scalar instead of
@@ -122,19 +136,25 @@ def fit_one_temperature(pairs: Sequence, min_n: Optional[int] = None) -> float:
         sel.append((z, t))
     if len(sel) < min_n:
         return 1.0
-    z_mat, t_mat = _pairs_to_tensors(sel)
+    groups = _pairs_by_width(sel)
+    n_rows = float(len(sel))
+    log_lo = float(np.log(TEMP_MIN)) - LOG_T_MARGIN
+    log_hi = float(np.log(TEMP_MAX)) + LOG_T_MARGIN
     with torch.enable_grad():
         log_t = torch.zeros(1, requires_grad=True)
         opt = torch.optim.LBFGS([log_t], lr=0.1, max_iter=100)
 
         def closure():
             opt.zero_grad()
-            loss = -(t_mat * torch.log_softmax(z_mat / log_t.exp(), -1)).sum(-1).mean()
+            scale = log_t.clamp(min=log_lo, max=log_hi).exp()
+            nll = sum(-(t * torch.log_softmax(z / scale, -1)).sum(-1).sum()
+                      for z, t in groups)
+            loss = nll / n_rows
             loss.backward()
             return loss
 
         opt.step(closure)
-    fitted = float(log_t.detach().exp().item())
+    fitted = float(log_t.detach().clamp(min=log_lo, max=log_hi).exp().item())
     return clamp_temperature(fitted, TEMP_MIN, TEMP_MAX)
 
 
@@ -651,7 +671,9 @@ def apply_calibration_payload(obj, payload: Dict[str, Any]) -> None:
     temps = payload.get("temperature")
     if not isinstance(temps, (list, tuple)) or len(temps) != N_QTYPES:
         raise ValueError("calibration JSON must contain temperature: [3 floats]")
-    by_options = payload.get("temperature_by_options") or {}
+    by_options = payload.get("temperature_by_options")
+    if by_options is None:   # absent, or an explicit null: a file from before bucket temperatures
+        by_options = {}
     if not isinstance(by_options, dict):
         raise ValueError(
             "calibration JSON temperature_by_options must be an object of bucket -> float, "
