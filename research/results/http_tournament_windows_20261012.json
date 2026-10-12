@@ -1,0 +1,32 @@
+{
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.12.14",
+  "torch": "2.14.1+cpu",
+  "checkpoint_revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+  "device": "cpu",
+  "torch_threads": 2,
+  "warmups_per_mode": 2,
+  "repeats": 3,
+  "group_size": 16,
+  "choice_options": 20,
+  "samples_ms": {
+    "one_pass": [
+      344.5958999218419,
+      344.14320008363575,
+      343.88549998402596
+    ],
+    "http_tournament": [
+      573.6455000005662,
+      645.8959999727085,
+      584.4692999962717
+    ]
+  },
+  "median_ms": {
+    "one_pass": 344.14320008363575,
+    "http_tournament": 584.4692999962717
+  },
+  "finalist_probability_max_difference": 0.0,
+  "large_choice_options": 128,
+  "large_finalists": 8,
+  "limitations": "Small fixed workload on an active workstation; HTTP mode includes transport. No accuracy claim."
+}

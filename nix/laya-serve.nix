@@ -268,6 +268,18 @@ in
       description = "Let the router auto-select the typed-decisions checkpoint when question ids match its workflows.";
     };
 
+    tournamentGroup = lib.mkOption {
+      type = lib.types.nullOr (lib.types.ints.between 2 100);
+      default = null;
+      example = 16;
+      description = ''
+        Opt-in elimination group size for large choices on /v1/systemone
+        (LAYA_TOURNAMENT_GROUP). null keeps one-pass inference. Choices can
+        contain up to 255 labels when narrowing is eligible; ordered choices
+        keep the one-pass cap. Probabilities describe the surviving finalists.
+      '';
+    };
+
     jevStrict = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -400,6 +412,8 @@ in
         LAYA_MAX_TOKEN_BUDGET = toString cfg.maxTokenBudget;
       } // lib.optionalAttrs (cfg.maxBatchTokens != null) {
         LAYA_MAX_BATCH_TOKENS = toString cfg.maxBatchTokens;
+      } // lib.optionalAttrs (cfg.tournamentGroup != null) {
+        LAYA_TOURNAMENT_GROUP = toString cfg.tournamentGroup;
       } // lib.optionalAttrs (cfg.revision != null) {
         LAYA_REVISION = cfg.revision;
       } // lib.optionalAttrs (cfg.defaultModel != null) {

@@ -58,6 +58,10 @@ env var                    meaning                                        defaul
                            `answer_confidence`, no `confidence` on noul
                            answers, and `usage` reduced to
                            `input_tokens` + `output_tokens`
+``LAYA_TOURNAMENT_GROUP``  answer a choice with more options than this   0 (off)
+                           by elimination in groups of this size, on
+                           ``/v1/systemone``; raises its option cap from
+                           100 to 255 (#302)
 =========================  ============================================  =========
 
 ``LAYA_DEVICE`` is a preference, not a guarantee: an ``Agent`` that asks for a
@@ -125,6 +129,10 @@ DEFAULT_MAX_BATCH_TOKENS = 131072
 _BATCH_ROW_TOKENS_ASSUMED = 512
 # HTTP-only amplification guard; the library keeps its head_max_len-aware budget.
 MAX_CHOICE_OPTIONS = 100
+# With `LAYA_TOURNAMENT_GROUP` set, a choice is narrowed in groups rather than read in one pass, so
+# its cap is Jev's documented one instead (#302). The tournament reads every label inside a group's
+# option budget, so the one-pass budget that sets MAX_CHOICE_OPTIONS no longer binds.
+MAX_TOURNAMENT_CHOICE_OPTIONS = 255
 MAX_SCORE_LEVELS = 32
 MAX_TOTAL_OPTIONS = 512
 
@@ -167,6 +175,14 @@ BODY_REFUSALS = ("hooks", "on_predict_start", "on_predict_end", "hooks_raise", "
 # caller cannot be allowed to shorten or lengthen that deadline from an HTTP body.
 BATCH_BODY_CALL_CONTROLS = ("batch_size", "min_confidence", "sort_by_length")
 BATCH_BODY_ITEM_CONTROLS = ("max_len", "head_max_len", "task", "lang", "lang_guess")
+
+# ``diagnostics`` is neither: it is an out-parameter. ``Router.predict_batch`` fills a dict the
+# caller already owns (#1111, so a shell can say which checkpoint groups actually reordered), and a
+# JSON body cannot own one -- whatever a request sent would be filled in and then dropped when the
+# handler returned. So the batch path refuses it, for the reason the list above exists: a control
+# the endpoint cannot honour is told, not ignored. It is listed separately from ``BODY_REFUSALS``
+# because that tuple is pinned against ``Router.predict``, which has no ``diagnostics``.
+BATCH_BODY_OUT_PARAMETERS = ("diagnostics",)
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -229,6 +245,96 @@ def _add_jev_confidence(result: Dict[str, Any]) -> Dict[str, Any]:
         conf = jev_confidence(answer) if isinstance(answer, dict) else None
         answers[qid] = answer if conf is None else {**answer, "x_jev_confidence": round(conf, 4)}
     return {**result, "answers": answers}
+
+
+def _tournament_eligible(questions: Any, group: int) -> bool:
+    """Whether the whole request can narrow its large choices without losing an order."""
+    if not group or not isinstance(questions, dict):
+        return False
+    large = []
+    for question in questions.values():
+        if not isinstance(question, dict) or question.get("type") != "choice":
+            continue
+        criteria = question.get("criteria")
+        if isinstance(criteria, (dict, list)) and len(criteria) > group:
+            large.append(question)
+    return bool(large) and all(question.get("option_order") is None
+                               and all(isinstance(label, str) for label in question["criteria"])
+                               for question in large)
+
+
+def _predict_with_tournament(router: Any, state: Any, questions: Dict[str, Any], group: int,
+                             **predict_kwargs: Any) -> Dict[str, Any]:
+    """Answer `questions`, narrowing every choice over `group` options by elimination (#302).
+
+    One pass reads every option inside a single option budget, and past a few dozen options they
+    no longer each get a token span of their own. `predict_tournament` reads them in groups of
+    `group` instead. When no choice is over `group`, this is exactly `router.predict`.
+
+    The answer keeps the Jev shape: `probabilities` names every option in criteria order, the
+    finalists carry the final round's probabilities, and an option eliminated in an earlier round
+    carries 0.0, so `choice` is still the argmax and the values still sum to 1. `x_tournament`
+    records the finalists and the round count, so a caller can tell an eliminated option from one
+    the final round scored. `confidence` and `answer_confidence` are the final round's.
+    `usage.input_tokens` is summed over every call; the other usage keys are the final call's.
+
+    A choice with `option_order`, or with a label that is not a string, keeps the one-pass path:
+    narrowing cannot carry an order over the full label set (#1062).
+    """
+    from .shortlist import _criteria_items, predict_tournament
+    large = {}
+    for qid, question in questions.items():
+        if not (isinstance(question, dict) and question.get("type") == "choice"):
+            continue
+        criteria = question.get("criteria")
+        if isinstance(criteria, (dict, list)) and len(criteria) > group:
+            large[qid] = [label for label, _ in _criteria_items(criteria)]
+    if not large or any(questions[qid].get("option_order") is not None
+                        or not all(isinstance(label, str) for label in labels)
+                        for qid, labels in large.items()):
+        return router.predict(state, questions, **predict_kwargs)
+
+    calls = []
+
+    class _Recorded:
+        def predict(self, *args, **kwargs):
+            state, questions = args
+            items = list(questions.items())
+            parts = []
+            # Elimination expands labels into questions. Keep each generated call under the
+            # same question cap as a client request instead of collating hundreds of rows.
+            for start in range(0, len(items), MAX_QUESTIONS):
+                result = router.predict(state, dict(items[start:start + MAX_QUESTIONS]), **kwargs)
+                calls.append(result)
+                parts.append(result)
+            if len(parts) == 1:
+                return parts[0]
+            answers = {}
+            for result in parts:
+                answers.update(result["answers"])
+            usage = dict(parts[-1].get("usage") or {})
+            usage["input_tokens"] = sum((part.get("usage") or {}).get("input_tokens", 0)
+                                        for part in parts)
+            return {**parts[-1], "answers": answers, "usage": usage}
+
+    recorded = _Recorded()
+    from .router import Router
+    if isinstance(router, Router):
+        recorded.route = router.route
+    result = dict(predict_tournament(recorded, state, questions, group_size=group, **predict_kwargs))
+    rounds = result.pop("tournament", {})
+    answers = dict(result.get("answers") or {})
+    for qid, labels in large.items():
+        answer, meta = answers.get(qid), rounds.get(qid) or {}
+        if not isinstance(answer, dict) or not meta.get("rounds"):
+            continue
+        final = answer.get("probabilities") or {}
+        answers[qid] = {**answer,
+                        "probabilities": {label: final.get(label, 0.0) for label in labels},
+                        "x_tournament": {"finalists": list(meta["labels"]), "rounds": meta["rounds"]}}
+    usage = dict(result.get("usage") or {})
+    usage["input_tokens"] = sum((call.get("usage") or {}).get("input_tokens", 0) for call in calls)
+    return {**result, "answers": answers, "usage": usage}
 
 
 def _published_model_ids() -> Dict[str, str]:
@@ -315,6 +421,25 @@ def _resolve_max_concurrent() -> int:
     except ValueError:
         return DEFAULT_MAX_CONCURRENT
     return n if n > 0 else DEFAULT_MAX_CONCURRENT
+
+
+def _resolve_tournament_group() -> int:
+    """Group size for choices answered by elimination, from LAYA_TOURNAMENT_GROUP; 0 is off (#302).
+
+    A choice with more options than this goes through `predict_tournament` in groups of this size.
+    Anything unset, unparseable, below 2 or above MAX_CHOICE_OPTIONS leaves it off, so the one-pass
+    path is the default. The upper bound is what keeps the raised cap honest: every choice it newly
+    admits has more than MAX_CHOICE_OPTIONS options, so it is always over the group and always
+    narrowed, never handed to a one-pass read that cannot fit it.
+    """
+    raw = os.environ.get("LAYA_TOURNAMENT_GROUP")
+    if not raw:
+        return 0
+    try:
+        n = int(raw)
+    except ValueError:
+        return 0
+    return n if 2 <= n <= MAX_CHOICE_OPTIONS else 0
 
 
 def _resolve_idle_unload_seconds() -> float:
@@ -410,6 +535,26 @@ def _refuse_body_refusals(body: Dict[str, Any]) -> None:
             status_code=422,
             detail="%s run inside the server process and cannot be sent to this endpoint; "
                    "install them where laya-serve runs, or drop them" % ", ".join(given))
+
+
+def _refuse_out_parameters(body: Dict[str, Any]) -> None:
+    """Reject a batch request that sends one of ``BATCH_BODY_OUT_PARAMETERS`` (422).
+
+    ``Router.predict_batch``'s ``diagnostics`` is a dict the caller keeps a reference to and reads
+    after the call. An HTTP caller keeps no reference, so a value sent here could only be written
+    and discarded. Refusing says so instead of answering 200 to a request for a report that is
+    never delivered.
+    """
+    from fastapi import HTTPException
+
+    given = sorted(key for key in BATCH_BODY_OUT_PARAMETERS
+                   if key in body and body[key] is not None)
+    if given:
+        raise HTTPException(
+            status_code=422,
+            detail="%s is filled in place for an in-process caller and cannot be returned over "
+                   "HTTP; read the per-group report from the CLI or a local Router"
+                   % ", ".join(given))
 
 
 def _validate_language_param(body: Dict[str, Any], key: str) -> Optional[str]:
@@ -720,7 +865,7 @@ def _state_length(state: Any) -> int:
         raise HTTPException(status_code=400, detail="'state' must be JSON-serializable")
 
 
-def _check_request_limits(state: Any, questions: Any) -> None:
+def _check_request_limits(state: Any, questions: Any, max_choice_options: int = MAX_CHOICE_OPTIONS) -> None:
     """Reject absent or oversized inference requests before tokenization (400/413)."""
     from fastapi import HTTPException
 
@@ -747,10 +892,10 @@ def _check_request_limits(state: Any, questions: Any) -> None:
         if qtype == "choice" and isinstance(crit, (dict, list)):
             count = len(crit)
             total_options += count
-            if count > MAX_CHOICE_OPTIONS:
+            if count > max_choice_options:
                 raise HTTPException(
                     status_code=413,
-                    detail="too many choice options for %r (%d > %d)" % (qid, count, MAX_CHOICE_OPTIONS),
+                    detail="too many choice options for %r (%d > %d)" % (qid, count, max_choice_options),
                 )
         elif qtype == "score" and isinstance(crit, list):
             count = len(crit)
@@ -1044,6 +1189,7 @@ def create_app(router: Optional[Any] = None):
     admission: Optional[asyncio.Semaphore] = None
 
     idle_unload_seconds = _resolve_idle_unload_seconds()
+    tournament_group = _resolve_tournament_group()
     last_request = time.monotonic()
 
     def _mark_request():
@@ -1216,7 +1362,8 @@ def create_app(router: Optional[Any] = None):
             raise HTTPException(status_code=400, detail="request body must be an object with a 'questions' field")
         state = body.get("state")
         questions = body["questions"]
-        _check_request_limits(state, questions)
+        _check_request_limits(state, questions, MAX_TOURNAMENT_CHOICE_OPTIONS if _tournament_eligible(questions, tournament_group)
+                              else MAX_CHOICE_OPTIONS)
         _refuse_body_refusals(body)
         # After the size checks, so an oversized body is refused before anything walks it, and
         # `MAX_STATE_CHARS`/`MAX_QUESTIONS` bound what the walk can reach. A `\udXXX` escape with
@@ -1262,8 +1409,12 @@ def create_app(router: Optional[Any] = None):
             async with gate:
                 loop = asyncio.get_running_loop()
                 t0 = time.perf_counter()
-                result = await loop.run_in_executor(
-                    pool, _run_inference, partial(router.predict, state, questions, model=model, **predict_kwargs))
+                if tournament_group:
+                    run = partial(_predict_with_tournament, router, state, questions, tournament_group,
+                                  model=model, **predict_kwargs)
+                else:
+                    run = partial(router.predict, state, questions, model=model, **predict_kwargs)
+                result = await loop.run_in_executor(pool, _run_inference, run)
                 infer_ms = (time.perf_counter() - t0) * 1000.0
                 if _env_bool("LAYA_JEV_STRICT", False):
                     result = _project_jev_strict(result)
@@ -1317,6 +1468,7 @@ def create_app(router: Optional[Any] = None):
         # so without this call a batch body would silently hand a caller a shorter deadline for
         # the operator's own hooks.
         _refuse_body_refusals(body)
+        _refuse_out_parameters(body)
         # The same guard `/v1/systemone` runs, for the same reason, and it has to walk the whole
         # body rather than one state because that is what the batch carries: `predict_batch`
         # tokenizes every state and every question here, so a lone `\udXXX` escape in any of them

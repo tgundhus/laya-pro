@@ -21,6 +21,12 @@ const noul: number = result.answers.refund.noul;
 const routingModel: string | undefined = result.routing?.model;
 const actionProbability: number | undefined = result.answers.team.action?.act_probability;
 const noulConfidence: number | undefined = result.answers.refund.confidence;
+const finalists: ('billing' | 'support')[] | undefined = result.answers.team.x_tournament?.finalists;
+const rounds: number | undefined = result.answers.team.x_tournament?.rounds;
+// @ts-expect-error Tournament metadata belongs to choice answers.
+result.answers.refund.x_tournament;
+// @ts-expect-error A finalist must belong to the question's labels.
+const invalidFinalists: ChoiceAnswer<'a' | 'b'>['x_tournament'] = { finalists: ['c'], rounds: 1 };
 const stateTokens: number = result.usage.state_tokens;
 const stateTokensDropped: number = result.usage.state_tokens_dropped;
 const truncated: boolean = result.usage.truncated;
