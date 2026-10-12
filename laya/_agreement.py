@@ -10,7 +10,8 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from .evals import EvalError
+from .confidence import GATE_ABSTAINED
+from .evals import EvalError, _takes_model
 
 
 RUN_SCHEMA = "laya-agreement-run/1"
@@ -289,10 +290,15 @@ def evaluate_agreement(runner: Any, reference: Dict, repeat: Dict, *,
     _provenance(student_provenance, "student_provenance")
     if model is not None:
         _text(model, "model")
+    takes_model = _takes_model(runner)
+    if model is not None and not takes_model:
+        raise EvalError("evaluate_agreement() refused: this runner's predict does not accept "
+                        "a `model` argument for checkpoint %r" % model)
+    kwargs = {"model": model} if takes_model else {}
     cases = []
     for case_id in sorted(ref["by_id"]):
         case = ref["by_id"][case_id]
-        result = runner.predict(deepcopy(case["state"]), deepcopy(case["questions"]), model=model)
+        result = runner.predict(deepcopy(case["state"]), deepcopy(case["questions"]), **kwargs)
         answers = result.get("answers") if isinstance(result, dict) else None
         if not isinstance(answers, dict) or set(answers) != set(case["questions"]):
             raise EvalError("student case %r must return exactly the question ids" % case_id)
@@ -305,7 +311,7 @@ def evaluate_agreement(runner: Any, reference: Dict, repeat: Dict, *,
             choice = answer.get("choice")
             if not isinstance(choice, str) or choice not in _labels(question, where):
                 raise EvalError("%s returned an invalid choice label" % where)
-            choices[qid] = None if answer.get("abstention") == "abstained" else choice
+            choices[qid] = None if answer.get("abstention") == GATE_ABSTAINED else choice
         cases.append(dict(deepcopy(case), answers=choices))
     run_id, suffix = "student", 0
     while run_id in (reference["run_id"], repeat["run_id"]):

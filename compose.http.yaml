@@ -72,6 +72,7 @@ services:
       LAYA_MAX_TOKEN_BUDGET: "${LAYA_MAX_TOKEN_BUDGET:-}"
       LAYA_MAX_BATCH_TOKENS: "${LAYA_MAX_BATCH_TOKENS:-}"
       LAYA_JEV_STRICT: "${LAYA_JEV_STRICT:-}"
+      LAYA_TOURNAMENT_GROUP: "${LAYA_TOURNAMENT_GROUP:-}"
       LAYA_LOG_LEVEL: "${LAYA_LOG_LEVEL:-info}"
       # The supply-chain pair: LAYA_REVISION says which Hub commit a checkpoint may load from (a
       # commit, branch, tag, or `reviewed` for the SHAs in laya/revisions.py) and

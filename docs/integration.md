@@ -74,6 +74,11 @@ automatically. [HTTP SDK source and full API](https://github.com/tgundhus/laya-p
 
 ## Native SDKs
 
+The TypeScript SDK now includes `predictTournament` and `cachedEmbedFn`. Tournaments compare
+finalists after elimination; their probabilities describe that final set. The bounded embedding
+cache reuses label vectors between requests and stays in memory. Clear it when the model changes;
+it is separate from Python's decision retention policy.
+
 - [TypeScript ONNX SDK](https://github.com/tgundhus/laya-pro/tree/main/laya-ts): export ONNX
   artifacts, build with `npm ci` and `npm run build`, then install the packed local package.
 - [Java SDK](https://github.com/tgundhus/laya-pro/tree/main/laya-java): build and test with

@@ -177,6 +177,62 @@ check_true(
 )
 
 
+# --------------------------------------------------------------- ragged temperature fits
+def _argmax_rows(width, n, seed):
+    rng = np.random.RandomState(seed)
+    rows = []
+    for _ in range(n):
+        z = rng.randn(width).astype(np.float32)
+        t = np.zeros(width, dtype=np.float32)
+        t[z.argmax()] = 1.0
+        rows.append((z, t))
+    return rows
+
+
+two_rows = _argmax_rows(2, 24, 0)
+nine_rows = _argmax_rows(9, 24, 0)
+check("ragged/two-option argmax fit", fit_one_temperature(two_rows, min_n=1), TEMP_MIN)
+check("ragged/nine-option argmax fit", fit_one_temperature(nine_rows, min_n=1), TEMP_MIN)
+check("ragged/mixed argmax fit avoids neutral fallback",
+      fit_one_temperature(two_rows + nine_rows, min_n=1), TEMP_MIN)
+low_rows = [(np.array([-20000 - i, -20001 - i], dtype=np.float32),
+             np.array([1.0, 0.0], dtype=np.float32)) for i in range(12)]
+check("ragged/negative logits retain the individual floor", fit_one_temperature(low_rows, min_n=1), TEMP_MIN)
+check("ragged/padding cannot compete with negative logits",
+      fit_one_temperature(low_rows + _argmax_rows(4, 12, 0), min_n=1), TEMP_MIN)
+ragged_records = [(QTYPES["score"], z, t, len(z)) for z, t in low_rows + nine_rows]
+check("ragged/public type-level fit uses each row's own width",
+      fit_temperatures(ragged_records)["temperature"][QTYPES["score"]], TEMP_MIN)
+
+interior_rows = []
+interior_rng = np.random.RandomState(293)
+for _ in range(400):
+    y = int(interior_rng.randint(20))
+    pred = y if interior_rng.rand() < 0.7 else int(interior_rng.randint(20))
+    z, t = peaked(20, pred, 1.0)
+    t[:] = 0.0
+    t[y] = 1.0
+    interior_rows.append((z, t))
+interior_t = fit_one_temperature(interior_rows, min_n=1)
+check_true("ragged/interior optimum remains available", TEMP_MIN < interior_t < TEMP_MAX, interior_t)
+
+
+def _true_nll(rows, temperature):
+    total = 0.0
+    for z, t in rows:
+        scaled = z.astype(np.float64) / temperature
+        shifted = scaled - scaled.max()
+        logp = shifted - np.log(np.exp(shifted).sum())
+        total -= float(np.dot(t, logp))
+    return total / len(rows)
+
+
+check_true("ragged/interior fit lowers the actual objective",
+           _true_nll(interior_rows, interior_t) < min(
+               _true_nll(interior_rows, TEMP_MIN),
+               _true_nll(interior_rows, interior_t * 1.1),
+               _true_nll(interior_rows, interior_t / 1.1)))
+
 # --------------------------------------------------------------- ECE on a held-out split, not the fit rows
 report = fitted["report"]
 check_true("ece/after < before", report["ece_after"] < report["ece_before"],
@@ -649,6 +705,13 @@ _refuses("shape/scalar by_options",
 _refuses("shape/list by_options",
          {"temperature": [1.0] * 3, "temperature_by_options": [["choice:2", 1.5]]},
          "temperature_by_options")
+for value in (0, 0.0, "", False, []):
+    _refuses("shape/falsy by_options %r" % (value,),
+             {"temperature": [1.0] * 3, "temperature_by_options": value},
+             "temperature_by_options")
+for optional in ({}, {"temperature_by_options": None}):
+    apply_calibration_payload(stub, {"temperature": [1.0] * 3, **optional})
+    check("shape/absent or null buckets still loads", stub.temperature_by_options, {})
 # and a numeric string version still parses, as it did before the check existed
 version_ok = type("Stub", (), {})()
 apply_calibration_payload(version_ok, {"temperature": [1.1, 1.2, 1.3], "version": "1"})

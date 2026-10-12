@@ -853,6 +853,44 @@ def test_evaluate_batches_same_questions():
     assert report.overall["choice_accuracy"] == 1.0
 
 
+@pytest.mark.parametrize("numeric_key", ["qid", "choice"])
+def test_evaluate_batch_groups_preserve_question_and_choice_key_types(numeric_key):
+    class Descriptor:
+        def __str__(self):
+            return "Accept"
+
+    class Runner:
+        def __init__(self):
+            self.batches = []
+
+        def predict(self, state, questions, model=None):
+            return {"model": "local", "answers": {
+                qid: {"type": "choice", "choice": next(iter(question["criteria"]))}
+                for qid, question in questions.items()}}
+
+        def predict_batch(self, states, questions, model=None, batch_size=None):
+            self.batches.append(list(states))
+            return [self.predict(state, questions, model=model) for state in states]
+
+    examples = []
+    for key in (3, "3"):
+        qid, choice = (key, "accept") if numeric_key == "qid" else ("route", key)
+        questions = {qid: {"type": "choice", "instructions": "Choose.",
+                           "criteria": {choice: Descriptor()}}}
+        for index in range(2):
+            examples.append(Example("%s-%d" % (type(key).__name__, index), questions, {qid: choice}))
+    runner = Runner()
+    report = evaluate(runner, Dataset(examples), evaluators=[ChoiceAccuracy()], batch_size=8)
+    assert runner.batches == [["int-0", "int-1"], ["str-0", "str-1"]]
+    assert len(report.cases) == 4
+    assert report.overall["choice_accuracy"] == 1.0
+    for example, case in zip(examples, report.cases):
+        qid, expected = next(iter(example.expected.items()))
+        assert type(case["qid"]) is type(qid)
+        assert type(case["answer"]["choice"]) is type(expected)
+        assert case["answer"]["choice"] == expected
+
+
 class RequestsRunner(StubRunner):
     """The `Router` shape: a list of per-request dicts, and no ``model=`` on the call."""
 
@@ -1249,6 +1287,177 @@ def test_cli_min_confidence_zero_is_accepted(monkeypatch, tmp_path):
     assert seen["min_confidence"] == 0.0
 
 
+# ------------------------------------------------- per-example model (#1107 guard)
+#
+# `Example.model` names an explicit checkpoint, and the single-row path used to forward it
+# unconditionally -- `model=chunk[0].model`, even when the value was `None`. `Agent.predict` is
+# `system_one`, which takes neither `model` nor `**kwargs`, so every row raised `TypeError` and
+# `on_error="skip"` published a zero-case, empty-overall, exit-0 report: the batch half of this
+# exact bug was `_batch_form`'s founding case, the single-row path was left outside it.
+
+
+class AgentShapedRunner:
+    """What `laya.load()` returns: `predict` is `system_one` -- no `model`, no `**kwargs`."""
+
+    def __init__(self, by_state):
+        self.by_state = by_state
+
+    def predict(self, state, questions, lang=None, min_confidence=None):
+        return {"answers": self.by_state[state]}
+
+    def predict_batch(self, states, questions, batch_size=None, lang=None):
+        return [self.predict(s, questions) for s in states]
+
+
+class NotIntrospectableRunner:
+    """Entry points whose signature cannot be read -- a C-level or hand-rolled ``__call__``
+    (#1112 review): `_batch_form` keeps the batch call there, so `_takes_model` must too."""
+
+    class _Callable:
+        __signature__ = None
+
+        def __call__(self, *args, **kwargs):
+            states = args[0]
+            def answer(state):
+                return {"model": kwargs.get("model"), "answers": ANSWERS3[state]}
+            return [answer(state) for state in states] if isinstance(states, list) else answer(states)
+
+        def __get__(self, obj, cls):
+            return self
+
+    predict = _Callable()
+    predict_batch = _Callable()
+
+
+def test_an_agent_shaped_runner_scores_instead_of_a_zero_case_report():
+    """Every row of the issue's report: a runner whose `predict` predates `model` used to fail
+    row by row and -- under the default skip -- publish 0 cases with an empty `overall`."""
+    report = evaluate(AgentShapedRunner(ANSWERS3), _three(), evaluators=[ChoiceAccuracy()],
+                      batch_size=4, on_error="skip")
+    assert len(report.cases) == 3, "the rows score; they do not vanish into on_error"
+    assert report.overall["choice_accuracy"] == pytest.approx(1.0)
+    assert not report.config.get("errored"), "a scoring run is not an erroring one"
+
+
+def test_the_model_kwarg_is_dropped_for_a_runner_without_one():
+    """With `on_error="fail"` the dropped kwarg is observable: had the harness still sent
+    `model=None`, every call here would raise `TypeError` instead of scoring."""
+    report = evaluate(AgentShapedRunner(ANSWERS3), _three(), evaluators=[ChoiceAccuracy()],
+                      batch_size=4)
+    assert len(report.cases) == 3
+    assert report.overall["choice_accuracy"] == pytest.approx(1.0)
+
+
+def test_a_runner_that_takes_model_still_receives_it():
+    """The guard drops the kwarg only for a runner without the parameter: a `Router`-shaped
+    `predict(state, questions, model=...)` keeps seeing the call the docstring promises."""
+    seen = {}
+
+    class Recording(StubRunner):
+        def predict(self, state, questions, model=None):
+            seen[state] = model
+            return StubRunner.predict(self, state, questions, model)
+
+    report = evaluate(Recording(ANSWERS3), _three(), evaluators=[ChoiceAccuracy()], batch_size=2)
+    assert set(seen.values()) == {None}, "no example names a checkpoint, so `None` is the value"
+    assert len(report.cases) == 3
+
+
+class BatchOnlyRouting(StubRunner):
+    """Routes in the batch entry point but not in the single one -- the shape `_batch_form`
+    approves (#1112 review)."""
+
+    def predict(self, state, questions):
+        return {"model": "single", "answers": self.by_state[state]}
+
+    def predict_batch(self, states, questions, model=None, batch_size=None):
+        return [{"model": model or "batched", "answers": self.by_state[s]} for s in states]
+
+
+def test_a_runner_that_routes_only_in_batch_survives_a_chunk_of_one():
+    """Chunking splits on (model, questions), so a differing row lands on the single `predict`.
+    `takes_model` reads `predict` alone, so this runner keeps batching and survives: the shape
+    that made the bug read as intermittent rather than as a contract mismatch."""
+    mixed = Dataset([Example("s1", Q, {"intent": "a"}),
+                     Example("s3", QNOUL, {"flag": True}),
+                     Example("s2", Q, {"intent": "a"})])
+    answers = {"s1": {"intent": choice_answer("a")}, "s2": {"intent": choice_answer("a")},
+               "s3": {"flag": noul_answer(0.9)}}
+    report = evaluate(BatchOnlyRouting(answers), mixed,
+                      evaluators=[ChoiceAccuracy(), NoulAccuracy()], batch_size=8)
+    assert not report.config.get("errored")
+    assert report.overall["choice_accuracy"] == 1.0
+
+
+def test_an_explicit_model_on_a_runner_without_the_parameter_is_refused():
+    """Dropping the kwarg when an example names a checkpoint would score the row on whatever the
+    runner answers with while the `model` slice labels it with the named one -- a lying report.
+    The pre-flight refuses instead, before any weights load, even under `on_error="skip"`, and
+    names the offending row and checkpoint so a large dataset is not a grep hunt."""
+    dataset = Dataset([Example("s1", Q, {"intent": "a"}, model="english"),
+                       Example("s2", Q, {"intent": "a"})])
+    with pytest.raises(EvalError) as exc:
+        evaluate(AgentShapedRunner(ANSWERS3), dataset, evaluators=[ChoiceAccuracy()],
+                 batch_size=4, on_error="skip")
+    assert "model" in str(exc.value)
+    assert "does not accept" in str(exc.value)
+    assert "example 0" in str(exc.value)
+    assert "'english'" in str(exc.value)
+
+
+def test_an_unreadable_signature_answers_both_guards_the_same_way():
+    """A C-level entry point cannot be read, and both guards then keep the call the harness makes
+    (#1112 review): with `_takes_model` on `_takes_min_confidence`'s ``False`` fallback, `model`
+    was sent on the batch path and dropped on the single one, and a named checkpoint was refused
+    even though the batch entry point would have carried it."""
+    assert evals._batch_form(NotIntrospectableRunner()) == evals._BATCH_STATES
+    assert evals._takes_model(NotIntrospectableRunner()) is True
+
+
+@pytest.mark.parametrize("rows", [1, 2])
+def test_a_named_model_runs_on_a_runner_with_unreadable_entry_points(rows):
+    """The refusal is about a guard saying no, not about introspection failing: on the same
+    C-level runner the run goes through, batch path and all."""
+    dataset = Dataset([Example(state, Q, {"intent": "a"}, model="english")
+                       for state in ("s1", "s2")[:rows]])
+    report = evaluate(NotIntrospectableRunner(), dataset, evaluators=[ChoiceAccuracy()],
+                      batch_size=4, on_error="skip")
+    assert report.config["timing"]["batch_form"] == "states"
+    assert report.config["timing"]["chunks"] == 1
+    assert len(report.cases) == rows
+    assert report.overall["choice_accuracy"] == 1.0
+    assert not report.config.get("errored")
+
+
+def test_an_explicit_model_still_reaches_a_runner_that_takes_it():
+    """The refusal is scoped to runners without the parameter; a named checkpoint keeps flowing
+    through both entry points of a `Router`-shaped runner."""
+    dataset = Dataset([Example("s1", Q, {"intent": "a"}, model="english"),
+                       Example("s2", Q, {"intent": "a"}, model="english")])
+    report = evaluate(StubRunner({"s1": {"intent": choice_answer("a")},
+                                  "s2": {"intent": choice_answer("a")}}),
+                      dataset, evaluators=[ChoiceAccuracy()], batch_size=2)
+    assert report.overall["choice_accuracy"] == 1.0
+
+
+def test_positional_only_model_is_not_mistaken_for_a_keyword():
+    class PositionalOnly(AgentShapedRunner):
+        def predict(self, state, questions, model=None, /):
+            return super().predict(state, questions)
+
+        def predict_batch(self, states, questions, model=None, /, batch_size=None):
+            return [self.predict(state, questions) for state in states]
+
+    runner = PositionalOnly(ANSWERS3)
+    report = evaluate(runner, _three(), evaluators=[ChoiceAccuracy()], batch_size=4)
+    assert len(report.cases) == 3
+    assert report.overall["choice_accuracy"] == 1.0
+    assert report.config["timing"]["batch_form"] is None
+    with pytest.raises(EvalError, match="example 0 names model 'english'"):
+        evaluate(runner, Dataset([Example("s1", Q, {"intent": "a"}, model="english")]),
+                 on_error="skip")
+
+
 # --------------------------------------------------------------- timing (#585)
 FORWARD_MS = 100.0
 SHARED = 0.6                      # a batch of n costs SHARED * n * FORWARD_MS, as one call
@@ -1626,11 +1835,11 @@ def test_questions_fingerprint_covers_the_instructions():
     """`instructions` is the prompt. Excluding it made the fingerprint say "same question" for
     two questions the model answers differently.
 
-    `laya/common.py:158-159` renders `"%s question: %s" % (q["type"], instructions)` into the
-    tokenized head, `laya/agent.py:633-634` makes the field mandatory ("add the text the model
-    should answer"), and Laya's own identity key for sharing forward passes
-    (`Router._question_schema`, `laya/router.py:141`) hashes the whole questions dict,
-    instructions included -- as does this module's own batch grouping at `laya/evals.py:529`.
+    `laya/common.py::build_head` renders `"%s question: %s" % (q["type"], instructions)` into the
+    tokenized head, `laya/agent.py::Agent._check_question` makes the field mandatory ("add the
+    text the model should answer"), and Laya's own identity key for sharing forward passes,
+    `laya/router.py::_question_schema`, hashes the whole questions dict, instructions included --
+    as does this module's own batch grouping at `laya/evals.py::evaluate`.
     `tests/test_router_batch.py:543` pins that rewording alone moves a row to its own batch group.
     Leaving it out made the one field this contract exists to protect the one field it ignored.
     """
@@ -1659,7 +1868,7 @@ def test_questions_fingerprint_covers_the_instructions():
 def test_questions_fingerprint_normalizes_instructions_the_way_the_engine_does():
     """Two questions that render the same text are the same question, whatever their JSON shape.
 
-    `Agent._to_internal` (`laya/agent.py:736-748`) turns a non-string `instructions` into
+    `laya/agent.py::Agent._to_internal` turns a non-string `instructions` into
     `json.dumps(ins, ensure_ascii=False)` before tokenizing, and `tests/test_criteria.py:229-251`
     pins why: the default `ensure_ascii=True` escaped non-ASCII to literal `\\uXXXX` and a German
     question answered noul=0.1652 as a dict against 0.2650 as the identical plain string. The
@@ -2026,9 +2235,10 @@ def test_questions_fingerprint_covers_labels():
     """`labels` decides the option text, so it belongs in the key.
 
     The same argument `test_questions_fingerprint_covers_the_instructions` makes for
-    `instructions`. `labels` is validated (`laya/agent.py:722-726` -> `_resolve_noul_labels`),
-    carried into the internal question (`laya/agent.py:748-749`), and resolved into the option
-    text the model actually reads (`laya/common.py:92`). Two question sets differing only in
+    `instructions`. `laya/agent.py::Agent._check_question` validates `labels` through
+    `laya/common.py::_resolve_noul_labels`, `laya/agent.py::Agent._to_internal` carries it into
+    the internal question, and the resolver is what produces the option text the model actually
+    reads. Two question sets differing only in
     `labels` therefore ask the model different things, and hashing them alike let the gate pass
     a comparison it exists to refuse.
     """
@@ -2053,8 +2263,8 @@ def test_questions_fingerprint_covers_labels():
 def test_questions_fingerprint_keeps_criteria_order():
     """A choice question's criteria order is positional, so two orders are two questions.
 
-    `examples/hooks/cache.py:22-25` states the rule and `Router._question_schema`
-    (`laya/router.py:141`) applies it with `sort_keys=False`. Worth pinning here for the dict
+    `examples/hooks/cache.py:22-25` states the rule and `laya/router.py::_question_schema`
+    applies it with `sort_keys=False`. Worth pinning here for the dict
     form: `json.dumps(sort_keys=True)` reorders *dict keys* and leaves *lists* alone, so a
     list-valued `criteria` -- the shape a dataset row has -- was already safe. The flag only
     mattered for a dict-valued one, where folding is the wrong direction to be wrong in.
@@ -2264,8 +2474,9 @@ SHA = "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851"
 def _fake_router(monkeypatch, recorded):
     """Replace `laya.Router` with a weight-free stand-in that records how `_cmd_run` built it.
 
-    It validates checkpoint names the way `Router.__init__` does, by calling the same
-    `normalise_name`, so the fake refuses a typo for the real reason.
+    It validates checkpoint names the way `Router.__init__` does and resolves a forced `--model` the
+    way `Router.resolve` does, both by calling the same `normalise_name`, so the fake refuses a typo
+    for the real reason.
     """
     import laya
 
@@ -2274,6 +2485,13 @@ def _fake_router(monkeypatch, recorded):
             from laya.router import normalise_name
             recorded.update(device=device, preload=preload, revision=revision,
                             revisions={normalise_name(k): v for k, v in (revisions or {}).items()})
+
+        def resolve(self, name):
+            # `_cmd_run` resolves `--model` against the Router that answers, so the stand-in has to
+            # resolve too. It takes no `models=`, so its registry is the built-in table, and that is
+            # exactly what `normalise_name` checks.
+            from laya.router import normalise_name
+            return normalise_name(name)
 
         def predict(self, state, questions, model=None, min_confidence=None):
             # The gate is a real part of the Router interface since #361; a stub without it would
@@ -2311,6 +2529,18 @@ def test_cli_bare_revision_pins_every_checkpoint(tmp_path, monkeypatch):
                            str(tmp_path / "r.json")]) == 0
     # A bare SHA is one commit for every checkpoint, so nothing is pinned per name.
     assert recorded["revision"] == SHA and recorded["revisions"] == {}
+
+
+def test_cli_records_loaded_checkpoints_with_unknown_local_revision(tmp_path, monkeypatch):
+    import laya
+    from laya import evals_cli
+
+    _fake_router(monkeypatch, {})
+    monkeypatch.setattr(laya.Router, "loaded_revisions", {"english": SHA, "local": None})
+    dataset = _write_dataset(tmp_path, [{"state": "s", "questions": Q, "expected": {"intent": "a"}}])
+    out = tmp_path / "report.json"
+    assert evals_cli.main(["run", dataset, "--json", str(out)]) == 0
+    assert json.loads(out.read_text())["config"]["revisions"] == {"english": SHA, "local": None}
 
 
 def test_cli_records_an_unpinned_run_too(tmp_path, monkeypatch):
@@ -2351,6 +2581,50 @@ def test_cli_accepts_a_checkpoint_alias_in_a_pin(tmp_path, monkeypatch):
     dataset = _write_dataset(tmp_path, [{"state": "s", "questions": Q, "expected": {"intent": "a"}}])
     assert evals_cli.main(["run", dataset, "--revision", "en=" + SHA]) == 0
     assert recorded["revisions"] == {"english": SHA}
+
+
+# ------------------------------------------------------------------ --model checkpoint name
+def test_cli_rejects_a_typo_in_the_forced_checkpoint_name(tmp_path, monkeypatch, capsys):
+    """`--model` is resolved by the first row, so a typo used to escape as a traceback and exit 1."""
+    from laya import evals_cli
+
+    recorded = {}
+    _fake_router(monkeypatch, recorded)
+    ran = []
+    real_evaluate = evals_cli.evals.evaluate
+
+    def spy(runner, ds, **kwargs):
+        ran.append(ds)
+        return real_evaluate(runner, ds, **kwargs)
+
+    monkeypatch.setattr(evals_cli.evals, "evaluate", spy)
+    dataset = _write_dataset(tmp_path, [{"state": "s", "questions": Q, "expected": {"intent": "a"}}])
+    assert evals_cli.main(["run", dataset, "--model", "englishg"]) == 2
+    err = capsys.readouterr().err
+    assert "unknown model 'englishg'" in err
+    assert "choose one of" in err, "the message comes from core, with the option list"
+    assert "Traceback" not in err, "a mistyped checkpoint is a usage error, not a crash"
+    assert not ran, "and it fails before a row is predicted"
+
+
+def test_cli_accepts_a_checkpoint_alias_for_the_forced_model(tmp_path, monkeypatch):
+    """Resolution is `Router.resolve`, which owns aliases and casing -- an exact-match check would fail here."""
+    from laya import evals_cli
+
+    recorded = {}
+    _fake_router(monkeypatch, recorded)
+    asked = {}
+    real_evaluate = evals_cli.evals.evaluate
+
+    def spy(runner, ds, **kwargs):
+        asked["model"] = ds.examples[0].model
+        return real_evaluate(runner, ds, **kwargs)
+
+    monkeypatch.setattr(evals_cli.evals, "evaluate", spy)
+    dataset = _write_dataset(tmp_path, [{"state": "s", "questions": Q, "expected": {"intent": "a"}}])
+    assert evals_cli.main(["run", dataset, "--model", "EN "]) == 0
+    # Validated, not rewritten: the spelling asked for is what the row and the report carry.
+    assert asked["model"] == "EN "
 
 
 # --------------------------------------------------------------- opt-in slice gates

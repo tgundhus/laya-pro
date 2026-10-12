@@ -122,6 +122,7 @@ except ValueError as exc:
 check_param("load", load, "compile", False)
 check_param("load", load, "backend", None)
 check_param("load", load, "onnx_path", None)
+check_true("load/return annotation includes ONNXAgent", "ONNXAgent" in str(inspect.signature(load).return_annotation))
 check_param("Agent.__init__", Agent.__init__, "backend", None)
 check_param("Agent.set_backend", Agent.set_backend, "name", "auto")
 check_param("Agent.set_backend", Agent.set_backend, "strict", False)
@@ -170,6 +171,8 @@ check_param("Agent.predict_batch", Agent.predict_batch, "batch_size", None)
 check_param("Agent.predict_batch", Agent.predict_batch, "sort_by_length", False)
 check_param("Router.predict_batch", Router.predict_batch, "batch_size", None)
 check_param("Router.predict_batch", Router.predict_batch, "sort_by_length", False)
+check_param("Router.predict_batch", Router.predict_batch, "diagnostics", None,
+            inspect.Parameter.KEYWORD_ONLY)
 
 # per-call token-budget overrides
 for label, fn in (("Agent.predict_batch", Agent.predict_batch),
@@ -192,6 +195,29 @@ check_param("shortlist_choice", laya.shortlist_choice, "return_scores", False,
 
 # predict_tournament splits a choice into groups of 16 labels unless the caller picks a size
 check_param("predict_tournament", laya.predict_tournament, "group_size", 16)
+
+# A Router-shaped runner resolves the original schema before tournament questions are generated.
+class _TournamentRouteProbe:
+    def __init__(self):
+        self.routes = []
+        self.models = []
+
+    def route(self, state, questions, **kwargs):
+        self.routes.append(questions)
+        return {"model": "typed-decisions", "workflow": "original"}
+
+    def predict(self, state, questions, **kwargs):
+        self.models.append(kwargs.get("model"))
+        return {"answers": {qid: {"type": "choice", "choice": q["criteria"][0]}
+                            for qid, q in questions.items()}, "routing": {"model": kwargs.get("model")}}
+
+
+_tournament_probe = _TournamentRouteProbe()
+_tournament_questions = {"category": {"type": "choice", "criteria": ["a", "b", "c", "d", "e"]}}
+_tournament_result = laya.predict_tournament(_tournament_probe, "hi", _tournament_questions, group_size=2)
+check("predict_tournament/routes original schema once", _tournament_probe.routes, [_tournament_questions])
+check_true("predict_tournament/pins every round", all(m == "typed-decisions" for m in _tournament_probe.models))
+check("predict_tournament/keeps original workflow", _tournament_result["routing"]["workflow"], "original")
 
 # route() and route_batch() take per-call hooks so a hook can pin a checkpoint for one call
 for label, fn in (("Router.route", Router.route),
@@ -255,6 +281,14 @@ check_true("laya.hooks/run_coroutine_sync exists",
 # integrity guide; `laya.revisions` is not the documented path.
 check_true("__all__/PINNED_REVISIONS", "PINNED_REVISIONS" in laya.__all__)
 check_true("laya.PINNED_REVISIONS exists", hasattr(laya, "PINNED_REVISIONS"))
+from laya.confidence import jev_confidence as _jev_confidence  # noqa: E402
+
+check_true("__all__/jev_confidence", "jev_confidence" in laya.__all__)
+check_true("laya.jev_confidence is the strict helper", laya.jev_confidence is _jev_confidence)
+check("laya.jev_confidence/choice", laya.jev_confidence({"type": "choice", "probabilities": {"a": 0.8, "b": 0.2}}),
+      0.6000000000000001)
+check("laya.jev_confidence/rejects boolean probability",
+      laya.jev_confidence({"type": "choice", "probabilities": {"a": True}}), None)
 
 # BaseHook is the concrete no-op base class; all six events exist and are callable.
 for event in HOOK_EVENTS:
@@ -1666,6 +1700,30 @@ try:
 finally:
     _hooks_mod.clear_default_hooks()
 
+
+from laya.evals import ChoiceAccuracy, Dataset, EvalError, Example, evaluate  # noqa: E402
+
+class _DirectEvalRunner:
+    def __init__(self):
+        self.calls = 0
+
+    def predict(self, state, questions):
+        self.calls += 1
+        return {"answers": {"q": {"type": "choice", "choice": "a"}}}
+
+_eval_questions = {"q": {"type": "choice", "instructions": "Pick", "criteria": ["a", "b"]}}
+_eval_runner = _DirectEvalRunner()
+_eval_report = evaluate(_eval_runner, Dataset([Example("hello", _eval_questions, {"q": "a"})]),
+                        evaluators=[ChoiceAccuracy()])
+check("evaluate/direct Agent-shaped runner", _eval_report.overall["choice_accuracy"], 1.0)
+check("evaluate/direct runner was called", _eval_runner.calls, 1)
+try:
+    evaluate(_eval_runner, Dataset([Example("hello", _eval_questions, {"q": "a"}, model="english")]))
+except EvalError:
+    check_true("evaluate/direct runner refuses an explicit checkpoint", True)
+else:
+    check_true("evaluate/direct runner refuses an explicit checkpoint", False)
+check("evaluate/refusal precedes inference", _eval_runner.calls, 1)
 
 print("\n%d passed, %d failed" % (len(PASS), len(FAIL)))
 for f in FAIL:

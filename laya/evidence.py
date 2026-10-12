@@ -24,11 +24,7 @@ INSUFFICIENT = "INSUFFICIENT"
 UNKNOWN = "UNKNOWN"
 INCOMPARABLE = "INCOMPARABLE"
 
-# Documented upstream floors/thresholds. `laya.calibrate.MIN_TYPE_N` and
-# `laya.train.CALIB_WARN_N` live in modules that import torch at module scope, so a
-# read-only command cannot import them without pulling torch in. We prefer the live
-# constants when torch is importable and fall back to the documented values with an
-# explicit provenance note when it is not; we never silently duplicate.
+
 def _entry(state: str, reason: str, detail: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     out = {"state": state, "reason": reason}
     if detail:
@@ -74,23 +70,26 @@ def inspect_calibration(config: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+# Copy the eval identity vocabulary to keep this read-only path free of numpy and torch.
+# tests/test_evidence.py checks it against laya.evals._IDENTITY_KEYS.
+_IDENTITY_KEYS = ("schema", "dataset_sha256", "questions_sha256")
+_PROVENANCE_KEYS = ("laya_version",)
+_IDENTITY_CONFLICT_KEYS = ("dataset_sha256", "questions_sha256")
+
+
 def inspect_report(report: Dict[str, Any]) -> Dict[str, Any]:
-    """Evidence state of an eval report's identity fields (reuses EvalReport semantics)."""
+    """Evidence state of the report identity and optional provenance fields."""
     config = report.get("config")
     if not isinstance(config, dict):
         return _entry(UNKNOWN, "report has no config block; identity unknown")
     fields = {}
-    for key in ("schema", "dataset_sha256", "questions_sha256", "laya_version"):
+    for key in _IDENTITY_KEYS + _PROVENANCE_KEYS:
         value = config.get(key)
         if value is None and report.get(key) is not None:
             value = report.get(key)
         fields[key] = _entry(PRESENT, "recorded", {"value": value}) if value is not None else _entry(UNKNOWN, "not recorded in this report")
-    identity_keys = [fields["schema"], fields["dataset_sha256"], fields["questions_sha256"]]
-    overall = PRESENT if all(f["state"] == PRESENT for f in identity_keys) else UNKNOWN
+    overall = PRESENT if all(fields[key]["state"] == PRESENT for key in _IDENTITY_KEYS) else UNKNOWN
     return {"state": overall, "fields": fields}
-
-
-_IDENTITY_CONFLICT_KEYS = ("dataset_sha256", "questions_sha256")
 
 
 def _field(config_like: Any, key: str) -> Any:

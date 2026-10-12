@@ -186,13 +186,68 @@ Python's `sort_by_length` grouping is not ported yet.
 ## Shortlist (many labels)
 
 ```ts
-import { shortlistChoice, predictShortlist, embedFnFromAgent } from "laya-ts";
+import { shortlistChoice, predictShortlist, embedFnFromAgent, cached } from "laya-ts";
 
-const keep = await shortlistChoice(state, bigCriteriaDict, embedFn, 20);
-const out = await predictShortlist(agent, state, questions, embedFn, 20);
+const embed = cached(embedFnFromAgent(agent), 4096);
+const keep = await shortlistChoice(state, bigCriteriaDict, embed, 20);
+const out = await predictShortlist(agent, state, questions, embed, 20);
 // out.shortlist[qid] = { labels, scores, k, n, passthrough }
 // embedFnFromAgent(agent) mean-pools the loaded encoder; a dedicated bi-encoder usually shortlists better.
+console.log(embed.cacheInfo()); // { size, maxsize, hits, misses }
+embed.cacheClear();
 ```
+
+`cached` (`cachedEmbedFn`) keeps at most `maxsize` text vectors in a process-local LRU
+cache; the default is 4096. Repeated label text avoids embedding work. Returned vectors
+are copied, failed embeddings are not stored, and clearing prevents pending calls from
+restoring old entries. Entries remain until eviction or `cacheClear()`; there is no TTL or
+disk persistence. Clear or replace the wrapper whenever the underlying model changes.
+Concurrent cold requests may embed the same missing text independently. Python-style
+`cache_info()` and `cache_clear()` aliases are also available.
+
+## Tournament (large choices without an embedder)
+
+```ts
+import { predictTournament } from "laya-ts";
+
+const out = await predictTournament(agent, state, questions, 16, { minConfidence: 0.9 });
+console.log(out.tournament.intent); // { labels: finalists, n: originalCount, rounds }
+```
+
+`predictTournament` splits each large choice into balanced groups and asks the model to
+pick one winner per group. Each round sends all groups in one prediction call, then the
+final call evaluates the narrowed questions together with any small or non-choice
+questions. The default group size is 16; it must be an integer of at least 2. The helper
+accepts an `Agent`, a `Router`, or an object with `predict`/`systemOne`/`system_one`.
+When a router needs narrowing, the helper resolves the original questions once and pins
+that checkpoint for every prediction, retaining the original detected calibration language.
+Route hooks run for that resolution and for each prediction; deliberate hook overrides
+remain active. Final routing keeps the original explanation when the checkpoint matches.
+Requests that need no narrowing use one ordinary prediction.
+
+Grouping can change the winning label. Final probabilities and confidence describe the
+finalists, and `usage` describes only the final call. Metadata records the original label
+count and narrowing rounds. A narrowed question drops `option_order` and warns once;
+the caller's questions remain unchanged. Tournament selection does not guarantee the
+same accuracy or latency as scoring the entire catalog.
+
+Local parity and caching checks are runnable after building the SDK:
+
+```bash
+python laya-ts/scripts/tournament_parity.py --model-dir CHECKPOINT --onnx-dir SPLIT_EXPORT --fixture tournament-python.json
+node laya-ts/examples/tournament.mjs --model-dir SPLIT_EXPORT --fixture tournament-python.json --report tournament-node.json --compact
+node laya-ts/examples/cached-embedder.mjs --model-dir SPLIT_EXPORT --report cached-embedder.json
+```
+
+The [local English parity result](https://github.com/tgundhus/laya-pro/blob/main/laya-ts/examples/results/tournament-parity-windows-20261012.json)
+records four scenarios with matching winners, finalists and usage, and at most one
+four-decimal output unit of numeric difference. Both runtimes clamped the checkpoint's
+out-of-range `choice:11+` temperature to 0.5; this check does not validate calibration.
+The [cache measurement](https://github.com/tgundhus/laya-pro/blob/main/laya-ts/examples/results/cached-embedder-windows-20261012.json)
+preserved shortlisted labels while reducing embedded rows from 126 to 6 over six requests.
+Its three alternating CPU repeats measured a median 294.5 → 33.7 ms per request for a fixed
+20-label catalog. The artifacts record settings and limits; these small panels do not
+establish general accuracy or throughput.
 
 ## Per-language calibration (`lang_temperatures`)
 

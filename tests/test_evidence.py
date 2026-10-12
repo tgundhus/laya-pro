@@ -63,6 +63,15 @@ check("mixed types overall -> INSUFFICIENT", mixed["state"], evidence.INSUFFICIE
 malformed = calib({"training": {"laya_train_calibration": {"choice": {"temperature": 1.0}}}})
 check("malformed entry -> UNKNOWN", malformed["types"]["choice"]["state"], evidence.UNKNOWN)
 
+for _items in (1, 5, 9, 10, 49, 50, 300, 5000):
+    _entry = {"items": _items, "temperature": 1.1, "issues": []}
+    _config = {"training": {"laya_train_calibration": {"choice": _entry}}}
+    check("items=%d without recorded issues -> PRESENT" % _items,
+          calib(_config)["types"]["choice"]["state"], evidence.PRESENT)
+    _entry["issues"] = ["recorded limitation"]
+    check("items=%d with recorded issues -> INSUFFICIENT" % _items,
+          calib(_config)["types"]["choice"]["state"], evidence.INSUFFICIENT)
+
 # ------------------------------------------------------ report identity
 full_report = {"config": {"schema": "laya-evals-report/1", "dataset_sha256": "a",
                           "questions_sha256": "b", "laya_version": "0.3.28"}, "overall": {}}
@@ -76,6 +85,17 @@ check("missing identity fields -> UNKNOWN", rep2["state"], evidence.UNKNOWN)
 toplevel = {"schema": "laya-evals-report/1", "dataset_sha256": "a", "questions_sha256": "b",
             "config": {}}
 check("identity at top level still read", evidence.inspect_report(toplevel)["state"], evidence.PRESENT)
+
+from laya import evals  # noqa: E402
+
+check("copied identity vocabulary matches evals", evidence._IDENTITY_KEYS, evals._IDENTITY_KEYS)
+check("optional provenance does not decide identity",
+      evidence.inspect_report({"config": {key: "recorded" for key in evidence._IDENTITY_KEYS}})["state"],
+      evidence.PRESENT)
+for _missing in evals._IDENTITY_KEYS:
+    check("missing %s makes report identity unknown" % _missing,
+          evidence.inspect_report({"config": {key: "recorded" for key in evals._IDENTITY_KEYS
+                                               if key != _missing}})["state"], evidence.UNKNOWN)
 
 # ------------------------------------------------------ relationship
 config = {"training": {"laya_train": {"laya_version": "0.3.28"}}}
@@ -131,6 +151,12 @@ print(proc.stdout.strip(), proc.stderr.strip()[-300:])
 out = proc.stdout
 check_true("evidence CLI works with torch blocked", "RC 0" in out)
 check_true("torch not imported when blocked", "TORCH False" in out)
+
+proc = subprocess.run([sys.executable, "-c",
+    "import sys; from laya import evidence; "
+    "assert 'torch' not in sys.modules and 'numpy' not in sys.modules"],
+    cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))), capture_output=True, text=True, timeout=30)
+check("standalone evidence imports neither numpy nor torch", proc.returncode, 0)
 
 if FAIL:
     print("\nFAILURES:", FAIL)

@@ -95,6 +95,15 @@ export function validatePrediction(value: unknown, questions: Questions): void {
     if (answer.x_jev_confidence !== undefined) {
       expect(question.type !== 'noul' && probability(answer.x_jev_confidence), `answers.${id}.x_jev_confidence`);
     }
+    if (answer.x_tournament !== undefined) {
+      const meta = answer.x_tournament;
+      const labels = Array.isArray(question.criteria) ? question.criteria : Object.keys(question.criteria ?? {});
+      expect(question.type === 'choice' && isRecord(meta) && Number.isInteger(meta.rounds) &&
+        (meta.rounds as number) > 0 && Array.isArray(meta.finalists) && meta.finalists.length > 0 &&
+        new Set(meta.finalists).size === meta.finalists.length &&
+        meta.finalists.every(label => typeof label === 'string' && labels.includes(label)) &&
+        meta.finalists.includes(answer.choice), `answers.${id}.x_tournament`);
+    }
     if (answer.low_confidence !== undefined) {
       expect(answer.low_confidence === true, `answers.${id}.low_confidence`);
     }

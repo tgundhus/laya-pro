@@ -7,6 +7,10 @@ The metric math and the dataset parser are pure Python plus numpy and never impo
 they run with no weights. Running a dataset against a checkpoint needs the checkpoint and
 takes its normal load time.
 
+Python runners need `predict(state, questions)`. Direct Agents can be evaluated on
+their own checkpoint; an explicit per-example `model` requires a runner that accepts
+that keyword. Unsupported pins fail before prediction, including with `on_error="skip"`.
+
 ## Quickstart
 
 ```bash
@@ -112,8 +116,9 @@ with laya.Router(device="cpu", revision=revision) as runner:
 print(report["overall"])
 ```
 
-The runner uses the same `predict(state, questions, model=...)` protocol as the
-labelled harness (for example, `laya.Router`). Language and tags are slice metadata;
+The runner uses the same `predict(state, questions)` protocol as the labelled harness.
+A supplied `model` requires keyword support (for example, `laya.Router`); a direct
+Agent uses its loaded checkpoint when no model is named. Language and tags are slice metadata;
 configure the runner's language policy and record it in student provenance. Inputs are
 copied before inference. Runner failures propagate; invalid or incomplete outputs
 raise `EvalError`. A choice flagged `abstention="abstained"` becomes a null
@@ -378,8 +383,8 @@ on the flag downstream of the harness.
 The accepted range is core's `laya.confidence.check_min_confidence` -- `[0.0, 1.0]`, finite, not
 a bool -- rather than a copy here, so a value the gate itself would reject fails as a usage error
 (exit 2) before any checkpoint loads. `0.0` is a legal ask: it is the control arm for an
-abstention sweep and the value `flag_low_confidence` treats as a no-op, so a check that dropped
-it would hide which arm actually ran.
+abstention sweep and the threshold at which `flag_low_confidence` marks no answer, so a check
+that dropped it would hide which arm actually ran.
 
 A runner whose `predict` or (for a batched run) whose `predict_batch` predates the gate is
 **refused with a named `EvalError`**, not run without the threshold. Silently dropping it would
@@ -452,7 +457,7 @@ is reviewable on its own:
 | `coverage_metric_definition` | which definition of `aurc` / `selective_accuracy@*` produced this report (see [coverage cuts](#coverage-cuts-and-ties)). A relative gate rule on either refuses a baseline recorded under a different one, rather than subtracting numbers that do not mean the same thing |
 | `thresholds` | the gate this run applied: `min`, `max` and `baseline_tolerance` |
 | `gate_policy` | the optional slice gate policy applied by `run --gate-policy` |
-| `revisions` | the commit each checkpoint that answered was loaded from (see [below](#baseline-and-ci-gate)) |
+| `revisions` | a torch run records the commit for each loaded checkpoint; an `--onnx` run records its config/tokenizer source under the `--model` key. Local directories have `null` revisions (see [below](#baseline-and-ci-gate)) |
 
 `dataset` is a path, and a path is not an identity: a dataset can be edited in place, moved, or
 refetched under the same name, and a CI cache can hand two runs the same filename and different
@@ -529,6 +534,11 @@ them. Left unpinned, the run takes the checkpoint's default branch and the repor
 commit answered, so a baseline drift can be attributed to the weights or to the code.
 `laya/revisions.py` publishes reviewed commit SHAs in `PINNED_REVISIONS` for callers who want to
 opt in. With `--onnx`, only a bare `--revision <SHA>` applies, to the config and tokenizer download.
+
+Both routes write the `revisions` block. Without `--model`, the ONNX source key defaults
+to `convaiinnovations/laya` while `config.model` stays `null`. This source revision does
+not verify the exported graph's weights: record the graph's checksum separately when
+attributing a result to an export. A source given as a local directory is recorded as `null`.
 
 ## Adding the real labelled set
 

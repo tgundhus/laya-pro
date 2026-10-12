@@ -8,6 +8,7 @@ import os
 import sys
 import warnings
 from concurrent.futures import ThreadPoolExecutor
+from threading import Event, Thread
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -779,6 +780,93 @@ swap_cached(["beta"])
 check("cache/dim clear then re-embed works", swap_cached.cache_info()["size"], 1)
 
 
+# A miss started before cache_clear must not refill the new cache, even if the
+# replacement embedder has a different width. Hits captured by that call stay its own.
+def _clear_during_embedding(with_hit, new_width=3):
+    entered, release = Event(), Event()
+    settings = {"width": 2, "value": 1.0}
+
+    def embed(texts):
+        width, value = settings["width"], settings["value"]
+        if "pending" in texts:
+            entered.set()
+            if not release.wait(10):
+                raise TimeoutError("pending embedding did not finish")
+        return np.full((len(texts), width), value, dtype=np.float32)
+
+    cached = cached_embed_fn(embed)
+    if with_hit:
+        cached(["seed"])
+    texts = ["seed", "pending"] if with_hit else ["pending"]
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(cached, texts)
+        try:
+            check_true("cache/clear pending call started", entered.wait(10))
+            cached.cache_clear()
+            settings.update(width=new_width, value=7.0)
+            newer = cached(["seed"])
+            release.set()
+            try:
+                older = pending.result(timeout=10)
+            except Exception as exc:
+                FAIL.append("cache/clear old call raised %r" % (exc,))
+            else:
+                check_true("cache/clear old call keeps its own snapshot",
+                           older.shape == (len(texts), 2) and np.all(older == 1.0))
+            check_true("cache/clear replacement rows remain current",
+                       np.array_equal(cached(["seed"]), newer))
+            check("cache/clear pending rows do not refill cache", cached.cache_info()["size"], 1)
+        finally:
+            release.set()
+
+
+_clear_during_embedding(False)
+_clear_during_embedding(True)
+_clear_during_embedding(False, new_width=2)
+
+race_stop = Event()
+race_errors = []
+race_bad_rows = []
+
+
+def _race_embed(texts):
+    return np.array([[int(t)] * 8 for t in texts], dtype=np.float32)
+
+
+race_cached = cached_embed_fn(_race_embed, maxsize=4)
+
+
+def _race_caller(tid):
+    for n in range(2000):
+        texts = [str(tid * 10000 + n), str(tid * 10000 + n + 5000)]
+        try:
+            rows = race_cached(texts)
+            if rows.shape != (2, 8) or not np.array_equal(rows[:, 0], [int(t) for t in texts]):
+                race_bad_rows.append(texts)
+        except Exception as exc:
+            race_errors.append(type(exc).__name__)
+
+
+def _race_clearer():
+    while not race_stop.is_set():
+        race_cached.cache_clear()
+
+
+old_switch_interval = sys.getswitchinterval()
+sys.setswitchinterval(1e-6)
+clearer = Thread(target=_race_clearer)
+try:
+    clearer.start()
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        list(pool.map(_race_caller, range(3)))
+finally:
+    race_stop.set()
+    clearer.join(timeout=10)
+    sys.setswitchinterval(old_switch_interval)
+check_true("cache/concurrent dimension guard and clear do not escape", not race_errors, race_errors[:3])
+check_true("cache/concurrent rows retain their text binding", not race_bad_rows, race_bad_rows[:3])
+
+
 # --------------------------------------------------------------- tournament
 class Ranker:
     """Stand-in for Agent that always answers the label it ranks highest, in any group."""
@@ -990,6 +1078,51 @@ _out, again_warns = _run_catching_warnings(
     lambda: predict_tournament(Ranker(many_labels[::-1]), "s", {"big": many_order}, group_size=4)
 )
 check("order/warnings reset for a new call", len(again_warns), 1)
+
+
+# Resolve the original schema before generated ids obscure its workflow or language.
+class RoutedRanker(Ranker):
+    def __init__(self):
+        super().__init__(t_labels[::-1])
+        self.routes = []
+
+    def route(self, state, questions, **kwargs):
+        self.routes.append((questions, kwargs))
+        return {"model": kwargs.get("model") or "multilingual", "reason": "original schema",
+                "detection": {"language": "fr"}, "workflow": "original"}
+
+    def predict(self, state, questions, **kwargs):
+        result = super().predict(state, questions, **kwargs)
+        result["routing"] = {"model": kwargs.get("model"), "reason": "explicit pin"}
+        return result
+
+
+route_questions = {"category": {"type": "choice", "criteria": t_labels}}
+route_hooks = [object()]
+routed = RoutedRanker()
+routed_out = predict_tournament(routed, "bonjour", route_questions, group_size=4,
+                                hooks=route_hooks, hooks_timeout=1, max_len=128)
+check("tournament/route receives original questions once", len(routed.routes), 1)
+check_true("tournament/route sees original schema", routed.routes[0][0] is route_questions)
+check("tournament/route receives only routing controls", routed.routes[0][1],
+      {"hooks": route_hooks, "hooks_timeout": 1})
+check_true("tournament/every round keeps checkpoint and detected language",
+           all(kwargs.get("model") == "multilingual" and kwargs.get("lang") == "fr"
+               for _questions, kwargs in routed.calls))
+check_true("tournament/every round keeps prediction controls",
+           all(kwargs.get("hooks") is route_hooks and kwargs.get("max_len") == 128
+               for _questions, kwargs in routed.calls))
+check("tournament/response preserves original routing evidence", routed_out["routing"],
+      {"model": "multilingual", "reason": "original schema",
+       "detection": {"language": "fr"}, "workflow": "original"})
+explicit = RoutedRanker()
+predict_tournament(explicit, "bonjour", route_questions, group_size=4, model="english", lang="en")
+check_true("tournament/explicit model and language are preserved",
+           all(kwargs.get("model") == "english" and kwargs.get("lang") == "en"
+               for _questions, kwargs in explicit.calls))
+passthrough = RoutedRanker()
+predict_tournament(passthrough, "bonjour", {"category": {"type": "choice", "criteria": t_labels[:2]}}, group_size=4)
+check("tournament/passthrough adds no separate routing call", len(passthrough.routes), 0)
 
 
 print("\n%d passed, %d failed" % (len(PASS), len(FAIL)))

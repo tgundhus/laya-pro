@@ -106,6 +106,8 @@ export interface ChoiceAnswer<Label extends string = string> extends AnswerBase 
   confidence: number;
   /** Jev adapter concentration measure, when the server supplies it. */
   x_jev_confidence?: number;
+  /** Finalists carry final-round probabilities; eliminated labels have probability zero. */
+  x_tournament?: { finalists: Label[]; rounds: number };
   choice: Label;
   probabilities: Record<Label, number>;
 }

@@ -1,0 +1,139 @@
+{
+  "schema": "laya-ts-cached-embedder-result/1",
+  "passed": true,
+  "checkpoint_revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+  "onnx_sha256": {
+    "encoder.onnx": "8266cf15428df4da6bfb48263619a6802c4a0ef5d60c88f1539af9fbe31495fb",
+    "head.onnx": "e19affdcae37833acc7394cdce396d3c489b251b2bd6a50cdf72e4fe1da120bc",
+    "rl_agent_config.json": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd",
+    "tokenizer.json": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30",
+    "encoder.onnx.data": "708d9a2322e6a9dd3fc4076c69057a018000955b48de3d6ad3542e84ad7baaf1",
+    "head.onnx.data": "cb292785190edf0c39aa75bdd426a548e91c944ed4a4580d4d7d63191daf1d10"
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "arch": "x64",
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900KF",
+    "logical_cpus": 32,
+    "memory_gib": 64,
+    "device": "cpu",
+    "ort_threads_requested": 2
+  },
+  "settings": {
+    "labels": 20,
+    "shortlist_k": 5,
+    "encoder_max_length": 64,
+    "encoder_batch_size": 32,
+    "maxsize": 64,
+    "warmup_requests": 2,
+    "measured_repeats": 3,
+    "requests_per_repeat": 2,
+    "ordering": "alternating uncached-first/cached-first",
+    "units": "milliseconds"
+  },
+  "summary": {
+    "uncached": {
+      "calls": 6,
+      "rows": 126,
+      "median_repeat_ms": 589.0493999999999,
+      "median_per_request_ms": 294.52469999999994
+    },
+    "cached": {
+      "calls": 6,
+      "rows": 6,
+      "median_repeat_ms": 67.45259999999962,
+      "median_per_request_ms": 33.72629999999981
+    }
+  },
+  "cache_info": {
+    "size": 28,
+    "maxsize": 64,
+    "hits": 140,
+    "misses": 28
+  },
+  "samples": [
+    {
+      "order": [
+        "uncached",
+        "cached"
+      ],
+      "requests": 2,
+      "uncached_repeat_ms": 589.0493999999999,
+      "uncached_per_request_ms": 294.52469999999994,
+      "cached_repeat_ms": 67.45259999999962,
+      "cached_per_request_ms": 33.72629999999981,
+      "labels": [
+        [
+          "card_about_to_expire",
+          "apple_pay_or_google_pay",
+          "card_not_working",
+          "beneficiary_not_allowed",
+          "balance_not_updated_after_bank_transfer"
+        ],
+        [
+          "card_about_to_expire",
+          "apple_pay_or_google_pay",
+          "card_not_working",
+          "beneficiary_not_allowed",
+          "balance_not_updated_after_bank_transfer"
+        ]
+      ]
+    },
+    {
+      "order": [
+        "cached",
+        "uncached"
+      ],
+      "requests": 2,
+      "cached_repeat_ms": 65.77750000000015,
+      "cached_per_request_ms": 32.88875000000007,
+      "uncached_repeat_ms": 590.5942000000005,
+      "uncached_per_request_ms": 295.2971000000002,
+      "labels": [
+        [
+          "card_about_to_expire",
+          "apple_pay_or_google_pay",
+          "card_not_working",
+          "beneficiary_not_allowed",
+          "balance_not_updated_after_bank_transfer"
+        ],
+        [
+          "card_about_to_expire",
+          "apple_pay_or_google_pay",
+          "card_not_working",
+          "beneficiary_not_allowed",
+          "balance_not_updated_after_bank_transfer"
+        ]
+      ]
+    },
+    {
+      "order": [
+        "uncached",
+        "cached"
+      ],
+      "requests": 2,
+      "uncached_repeat_ms": 586.2663999999995,
+      "uncached_per_request_ms": 293.13319999999976,
+      "cached_repeat_ms": 70.91800000000057,
+      "cached_per_request_ms": 35.45900000000029,
+      "labels": [
+        [
+          "card_about_to_expire",
+          "apple_pay_or_google_pay",
+          "card_not_working",
+          "beneficiary_not_allowed",
+          "balance_not_updated_after_bank_transfer"
+        ],
+        [
+          "card_about_to_expire",
+          "apple_pay_or_google_pay",
+          "card_not_working",
+          "beneficiary_not_allowed",
+          "balance_not_updated_after_bank_transfer"
+        ]
+      ]
+    }
+  ],
+  "note": "Active workstation; small repeated-catalog panel. Each repeat runs two requests sequentially; per-request milliseconds divide that total by two. Row counts show avoided encoder work. Timings exclude model loading and hashing and do not establish general throughput or decision accuracy."
+}

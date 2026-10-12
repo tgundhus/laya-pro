@@ -171,6 +171,8 @@ def predict_tournament(
     finalists only.
 
     Extra keyword arguments are forwarded to every call (for example ``model=`` on a ``Router``).
+    A Router's original question schema is routed once before narrowing, then that checkpoint
+    and detected language are retained across rounds. Route hooks also run on each prediction.
     """
     if not isinstance(questions, dict):
         raise TypeError("questions must be a dict of question id -> definition")
@@ -188,6 +190,18 @@ def predict_tournament(
     def cut(qid, labels):
         narrowed = dict(questions[qid], criteria=_subset_criteria(questions[qid]["criteria"], labels))
         return _drop_stale_order(qid, narrowed, len(labels), warned)
+
+    decision = None
+    route = getattr(agent, "route", None)
+    if callable(route) and any(entry["n"] > group_size for entry in meta.values()):
+        route_kwargs = {key: predict_kwargs[key]
+                        for key in ("model", "task", "lang", "lang_guess", "hooks", "hooks_raise", "hooks_timeout")
+                        if key in predict_kwargs}
+        decision = route(state, questions, **route_kwargs)
+        predict_kwargs = {**predict_kwargs, "model": decision["model"]}
+        detected = decision.get("detection") or {}
+        if predict_kwargs.get("lang") is None and detected.get("language"):
+            predict_kwargs["lang"] = detected["language"]
 
     while True:
         groups = []
@@ -219,6 +233,8 @@ def predict_tournament(
         )
     out = dict(result)
     out["tournament"] = meta
+    if decision is not None and (result.get("routing") or {}).get("model") == decision["model"]:
+        out["routing"] = dict(decision)
     return out
 
 
@@ -305,7 +321,8 @@ def cached_embed_fn(
     The wrapper is safe to share between threads: the lock covers only cache reads and
     writes, never the embedding call. The returned callable carries ``cache_info()`` --
     a dict with ``size``, ``maxsize``, ``hits`` and ``misses`` -- and ``cache_clear()``.
-    Clear the cache if the model or weights behind ``embed_fn`` change.
+    Clear the cache if the model or weights behind ``embed_fn`` change. In-flight
+    calls keep their captured rows but cannot refill a cache cleared after they started.
     """
     if not callable(embed_fn):
         raise TypeError("embed_fn must be callable")
@@ -315,12 +332,14 @@ def cached_embed_fn(
     rows_by_text: OrderedDict[str, np.ndarray] = OrderedDict()
     lock = threading.Lock()
     counts = {"hits": 0, "misses": 0}
+    generation = 0
 
     def cached(texts: Sequence[str]) -> np.ndarray:
         keys = ["" if text is None else str(text) for text in texts]
         if not keys:
             return np.zeros((0, 0), dtype=np.float32)
         with lock:
+            started_generation = generation
             found: Dict[str, np.ndarray] = {}
             hits = 0
             for key in keys:
@@ -343,26 +362,31 @@ def cached_embed_fn(
                     % (len(missing), tuple(fresh.shape))
                 )
             fresh = np.nan_to_num(fresh, copy=True, nan=0.0, posinf=0.0, neginf=0.0)
-            if rows_by_text:
-                # Rows stored under one dimensionality cannot be stacked against rows of
-                # another: a changed embedder (or one whose dimension drifts between calls)
-                # would otherwise surface rows of mixed width, which `_rank` reads as one
-                # matrix. Deciding by identity is what the docstring already asks of the
-                # caller ("clear the cache if the model changes") -- this refuses the call
-                # instead of returning a matrix that silently mixes both.
-                want = next(iter(rows_by_text.values())).shape[0]
-                if fresh.shape[1] != want:
-                    raise ValueError(
-                        "embed_fn returned dim %d, but the cache holds dim %d; "
-                        "call cache_clear() if the model behind embed_fn changed"
-                        % (fresh.shape[1], want)
-                    )
             with lock:
+                current = started_generation == generation
+                dimension_rows = rows_by_text if current else found
+                if dimension_rows:
+                    # Rows stored under one dimensionality cannot be stacked against rows of
+                    # another: a changed embedder (or one whose dimension drifts between calls)
+                    # would otherwise surface rows of mixed width, which `_rank` reads as one
+                    # matrix. Deciding by identity is what the docstring already asks of the
+                    # caller ("clear the cache if the model changes") -- this refuses the call
+                    # instead of returning a matrix that silently mixes both. It is inside the
+                    # lock because a concurrent insert, eviction or `cache_clear()` mutates the
+                    # OrderedDict this reads.
+                    want = next(iter(dimension_rows.values())).shape[0]
+                    if fresh.shape[1] != want:
+                        raise ValueError(
+                            "embed_fn returned dim %d, but the cache holds dim %d; "
+                            "call cache_clear() if the model behind embed_fn changed"
+                            % (fresh.shape[1], want)
+                        )
                 for key, row in zip(missing, fresh):
-                    rows_by_text[key] = row
-                    rows_by_text.move_to_end(key)
-                    while len(rows_by_text) > maxsize:
-                        rows_by_text.popitem(last=False)
+                    if current:
+                        rows_by_text[key] = row
+                        rows_by_text.move_to_end(key)
+                        while len(rows_by_text) > maxsize:
+                            rows_by_text.popitem(last=False)
                     found[key] = row
         return np.stack([found[key] for key in keys])
 
@@ -376,7 +400,9 @@ def cached_embed_fn(
             }
 
     def cache_clear() -> None:
+        nonlocal generation
         with lock:
+            generation += 1
             rows_by_text.clear()
             counts["hits"] = 0
             counts["misses"] = 0

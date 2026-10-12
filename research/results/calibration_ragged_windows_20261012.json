@@ -1,0 +1,249 @@
+{
+  "baseline_ref": "3357dee78bb7933268a6db2d1f0215d1d0ea2dc7",
+  "baseline_calibrate_sha256": "d269c54acdc2d352a020b641b1957707e4245c8548c7dac8c5a17f6968c540f0",
+  "after_calibrate_sha256": "f1a2467a2075e5325b7362a1a11574acea69a95c601d8f2113a2ba7404f04a00",
+  "environment": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "python": "3.12.14",
+    "torch": "2.14.1+cpu",
+    "numpy": "2.5.3",
+    "torch_threads": 2
+  },
+  "protocol": {
+    "warmups_per_case_per_implementation": 1,
+    "measured_repeats": 3,
+    "order": "before/after on even repetitions; after/before on odd repetitions",
+    "min_n": 1,
+    "target_nll_dtype": "float64",
+    "input_dtype": "float32",
+    "argmax_seed": 0,
+    "mixed_width3_seed": 51,
+    "mixed_width20_seed": 293,
+    "mixed_target_probability": 0.7,
+    "mixed_logit_magnitude": 1.0
+  },
+  "caution": "Small synthetic fitter measurements on an active workstation; not inference latency or accuracy.",
+  "cases": {
+    "argmax_width2": {
+      "rows": 24,
+      "widths": [
+        2
+      ],
+      "before": {
+        "temperatures": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "samples_ms": [
+          63.432599999941885,
+          59.303499991074204,
+          59.789499966427684
+        ],
+        "temperature": 0.5,
+        "true_nll": 0.24856870734451575,
+        "median_ms": 59.789499966427684
+      },
+      "after": {
+        "temperatures": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "samples_ms": [
+          63.63510002847761,
+          61.47600000258535,
+          61.18179997429252
+        ],
+        "temperature": 0.5,
+        "true_nll": 0.24856870734451575,
+        "median_ms": 61.47600000258535
+      }
+    },
+    "argmax_width9": {
+      "rows": 24,
+      "widths": [
+        9
+      ],
+      "before": {
+        "temperatures": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "samples_ms": [
+          56.83089990634471,
+          54.73530001472682,
+          60.2468999568373
+        ],
+        "temperature": 0.5,
+        "true_nll": 0.7106489617147277,
+        "median_ms": 56.83089990634471
+      },
+      "after": {
+        "temperatures": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "samples_ms": [
+          60.34129997715354,
+          59.70540002454072,
+          59.076900011859834
+        ],
+        "temperature": 0.5,
+        "true_nll": 0.7106489617147277,
+        "median_ms": 59.70540002454072
+      }
+    },
+    "argmax_ragged_2_9": {
+      "rows": 48,
+      "widths": [
+        2,
+        9
+      ],
+      "before": {
+        "temperatures": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "samples_ms": [
+          17.014999990351498,
+          15.947600011713803,
+          16.17920002900064
+        ],
+        "temperature": 1.0,
+        "true_nll": 0.7651550769246773,
+        "median_ms": 16.17920002900064
+      },
+      "after": {
+        "temperatures": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "samples_ms": [
+          2.341400017030537,
+          2.190900035202503,
+          2.284599933773279
+        ],
+        "temperature": 0.5,
+        "true_nll": 0.4796088345296216,
+        "median_ms": 2.284599933773279
+      }
+    },
+    "negative_ragged_2_4": {
+      "rows": 24,
+      "widths": [
+        2,
+        4
+      ],
+      "before": {
+        "temperatures": [
+          5.0,
+          5.0,
+          5.0
+        ],
+        "samples_ms": [
+          61.43980007618666,
+          61.94609997328371,
+          60.93719997443259
+        ],
+        "temperature": 5.0,
+        "true_nll": 0.8814627756063907,
+        "median_ms": 61.43980007618666
+      },
+      "after": {
+        "temperatures": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "samples_ms": [
+          1.3068999396637082,
+          1.1615999974310398,
+          1.356000080704689
+        ],
+        "temperature": 0.5,
+        "true_nll": 0.2411162732847865,
+        "median_ms": 1.3068999396637082
+      }
+    },
+    "interior_width20": {
+      "rows": 400,
+      "widths": [
+        20
+      ],
+      "before": {
+        "temperatures": [
+          0.5223569273948669,
+          0.5223569273948669,
+          0.5223569273948669
+        ],
+        "samples_ms": [
+          47.70970006939024,
+          51.311500021256506,
+          50.77790003269911
+        ],
+        "temperature": 0.5223569273948669,
+        "true_nll": 1.4656235148943202,
+        "median_ms": 50.77790003269911
+      },
+      "after": {
+        "temperatures": [
+          0.5223569273948669,
+          0.5223569273948669,
+          0.5223569273948669
+        ],
+        "samples_ms": [
+          48.10789995826781,
+          51.04890000075102,
+          51.9512000028044
+        ],
+        "temperature": 0.5223569273948669,
+        "true_nll": 1.4656235148943202,
+        "median_ms": 51.04890000075102
+      }
+    },
+    "interior_ragged_3_20": {
+      "rows": 800,
+      "widths": [
+        3,
+        20
+      ],
+      "before": {
+        "temperatures": [
+          0.5958753824234009,
+          0.5958753824234009,
+          0.5958753824234009
+        ],
+        "samples_ms": [
+          44.85219996422529,
+          42.8155999397859,
+          40.75719998218119
+        ],
+        "temperature": 0.5958753824234009,
+        "true_nll": 1.0639826190247141,
+        "median_ms": 42.8155999397859
+      },
+      "after": {
+        "temperatures": [
+          0.5954996347427368,
+          0.5954996347427368,
+          0.5954996347427368
+        ],
+        "samples_ms": [
+          46.51820007711649,
+          44.972100062295794,
+          47.067100065760314
+        ],
+        "temperature": 0.5954996347427368,
+        "true_nll": 1.06398177331215,
+        "median_ms": 46.51820007711649
+      }
+    }
+  }
+}

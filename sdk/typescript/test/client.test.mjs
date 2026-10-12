@@ -68,6 +68,23 @@ test('credentials are sent only to the configured endpoint without following red
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status });
 const health = { status: 'ok', loaded: [], device: 'auto' };
 const route = { model: 'english', repo: 'convaiinnovations/laya', reason: 'test', detection: null, workflow: null };
+test('HTTP tournament metadata is optional and validated', async () => {
+  const questions = { q: { type: 'choice', instructions: 'Pick', criteria: ['a', 'b', 'c'] } };
+  const payload = { model: 'laya-rl-agent', routing: route, usage: { input_tokens: 10, output_tokens: 0 },
+    answers: { q: { type: 'choice', choice: 'b', confidence: 0.5, answer_confidence: 0.8,
+      probabilities: { a: 0, b: 0.8, c: 0.2 }, x_tournament: { finalists: ['b', 'c'], rounds: 1 } } } };
+  assert.deepEqual(await new Laya({ fetch: async () => json(payload) }).predict('hello', questions), payload);
+  for (const meta of [null, {}, { finalists: [], rounds: 1 }, { finalists: ['b', 'b'], rounds: 1 },
+    { finalists: ['unknown'], rounds: 1 }, { finalists: ['c'], rounds: 1 },
+    { finalists: ['b'], rounds: 0 }, { finalists: ['b'], rounds: 1.5 }]) {
+    const bad = structuredClone(payload);
+    bad.answers.q.x_tournament = meta;
+    await assert.rejects(new Laya({ fetch: async () => json(bad) }).predict('hello', questions), LayaResponseError);
+  }
+  const ordinary = structuredClone(payload);
+  delete ordinary.answers.q.x_tournament;
+  assert.deepEqual(await new Laya({ fetch: async () => json(ordinary) }).predict('hello', questions), ordinary);
+});
 const prediction = { model: 'laya-rl-agent', routing: route, usage: { input_tokens: 10, output_tokens: 0 },
   answers: { refund: { type: 'noul', noul: 0.9, confidence: 0.9, action: { act_probability: 0.8 } } } };
 

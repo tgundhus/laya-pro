@@ -2,3 +2,15 @@
 # False positives: SHA-256 digests of model tokenizer files in Chinese reliability benchmark results (commit 7c8b8316)
 7c8b8316410dc391d0fb2425986ff58e76035250:research/benchmarks/zh_reliability/results/massive_alarm_2026-09-24.json:generic-api-key:53
 7c8b8316410dc391d0fb2425986ff58e76035250:research/benchmarks/zh_reliability/results/massive_alarm_2026-09-24.json:generic-api-key:54
+# False positives: recorded SHA-256 digests of the English tokenizer and its ONNX copy.
+db22e694aa111d2b42770fefb4dc7394675fa96a:laya-ts/examples/results/cached-embedder-windows-20261012.json:generic-api-key:9
+db22e694aa111d2b42770fefb4dc7394675fa96a:laya-ts/examples/results/tournament-parity-windows-20261012.json:generic-api-key:8
+db22e694aa111d2b42770fefb4dc7394675fa96a:laya-ts/examples/results/tournament-parity-windows-20261012.json:generic-api-key:10
+db22e694aa111d2b42770fefb4dc7394675fa96a:laya-ts/examples/results/tournament-parity-windows-20261012.json:generic-api-key:33
+db22e694aa111d2b42770fefb4dc7394675fa96a:laya-ts/examples/results/tournament-parity-windows-20261012.json:generic-api-key:34
+# The same five digests in the working-tree scan.
+laya-ts/examples/results/cached-embedder-windows-20261012.json:generic-api-key:9
+laya-ts/examples/results/tournament-parity-windows-20261012.json:generic-api-key:8
+laya-ts/examples/results/tournament-parity-windows-20261012.json:generic-api-key:10
+laya-ts/examples/results/tournament-parity-windows-20261012.json:generic-api-key:33
+laya-ts/examples/results/tournament-parity-windows-20261012.json:generic-api-key:34

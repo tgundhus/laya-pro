@@ -1,0 +1,725 @@
+{
+  "schema": "laya-ts-tournament-parity-result/1",
+  "fixture_sha256": "d6d567fb3d180d24cb9ee4cda957f4754d01809b971462fce07f67e1a8e22db3",
+  "checkpoint_revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+  "checkpoint_sha256": {
+    "model.safetensors": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+    "rl_agent_config.json": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd",
+    "tokenizer/tokenizer.json": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30",
+    "encoder/config.json": "bf3ab80598fdccf414855a2ce80f22859e4492d06ca8a62ddd1cfb63972f8979",
+    "tokenizer.json": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+  },
+  "effective_calibration": {
+    "temperature": [
+      1.6369030475616455,
+      1.2514300346374512,
+      1.983399510383606
+    ],
+    "temperature_by_options": {
+      "choice:3-5": 1.7601518630981445,
+      "choice:6-10": 1.0000158548355103,
+      "score:3-5": 1.2514300346374512,
+      "noul:2": 1.983399510383606,
+      "choice:11+": 0.5,
+      "choice:2": 1.9063563346862793
+    }
+  },
+  "onnx_sha256": {
+    "encoder.onnx": "8266cf15428df4da6bfb48263619a6802c4a0ef5d60c88f1539af9fbe31495fb",
+    "encoder.onnx.data": "708d9a2322e6a9dd3fc4076c69057a018000955b48de3d6ad3542e84ad7baaf1",
+    "head.onnx": "e19affdcae37833acc7394cdce396d3c489b251b2bd6a50cdf72e4fe1da120bc",
+    "head.onnx.data": "cb292785190edf0c39aa75bdd426a548e91c944ed4a4580d4d7d63191daf1d10",
+    "rl_agent_config.json": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd",
+    "tokenizer.json": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30",
+    "tokenizer.nopost.json": "952c426c536a6688de97102e5c694d74b42926c5884b529212a21c0fc217a0d1",
+    "tokenizer.nopost.json.meta": "8b2a5ad0350e43d84f4d81f038f69f4f53366520f2aa3686c6a6d1892d933641"
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "arch": "x64",
+    "device": "cpu",
+    "num_threads_requested": 2
+  },
+  "tolerance": 0.0001,
+  "max_absolute_difference": 0.0001000000000000445,
+  "passed": true,
+  "errors": [],
+  "cases": [
+    {
+      "name": "banking-default-group",
+      "plain": {
+        "model_calls": 1,
+        "elapsed_ms": [
+          1047.3186999999998
+        ],
+        "median_ms": 1047.3186999999998,
+        "answers": {
+          "intent": {
+            "type": "choice",
+            "choice": "card_delivery_estimate",
+            "probabilities": {
+              "activate_my_card": 0,
+              "age_limit": 0,
+              "apple_pay_or_google_pay": 0,
+              "atm_support": 0,
+              "automatic_top_up": 0,
+              "balance_not_updated_after_bank_transfer": 0,
+              "beneficiary_not_allowed": 0,
+              "cancel_transfer": 0,
+              "card_about_to_expire": 0,
+              "card_acceptance": 0,
+              "card_arrival": 0.0001,
+              "card_delivery_estimate": 0.9938,
+              "card_linking": 0,
+              "card_not_working": 0,
+              "card_payment_fee_charged": 0,
+              "card_payment_not_recognised": 0,
+              "card_swallowed": 0,
+              "cash_withdrawal_charge": 0,
+              "change_pin": 0,
+              "compromised_card": 0,
+              "contactless_not_working": 0,
+              "country_support": 0,
+              "declined_card_payment": 0,
+              "declined_cash_withdrawal": 0,
+              "declined_transfer": 0,
+              "edit_personal_details": 0,
+              "exchange_charge": 0,
+              "exchange_rate": 0,
+              "failed_transfer": 0,
+              "fiat_currency_support": 0,
+              "get_physical_card": 0,
+              "lost_or_stolen_card": 0,
+              "lost_or_stolen_phone": 0,
+              "order_physical_card": 0.0001,
+              "passcode_forgotten": 0,
+              "pending_card_payment": 0.0059,
+              "refund_not_showing_up": 0,
+              "request_refund": 0,
+              "terminate_account": 0,
+              "top_up_failed": 0
+            },
+            "confidence": 0.9894,
+            "answer_confidence": 0.9938,
+            "action": {
+              "act_probability": 1
+            }
+          }
+        },
+        "usage": {
+          "input_tokens": 184,
+          "output_tokens": 0,
+          "state_tokens": 11,
+          "state_tokens_dropped": 0,
+          "truncated": false,
+          "truncated_questions": [],
+          "options": {
+            "intent": {
+              "total": 40,
+              "distinct": 38,
+              "tokens_per_option": 4
+            }
+          }
+        },
+        "reference_answers": {
+          "intent": {
+            "type": "choice",
+            "choice": "card_delivery_estimate",
+            "probabilities": {
+              "activate_my_card": 0.0,
+              "age_limit": 0.0,
+              "apple_pay_or_google_pay": 0.0,
+              "atm_support": 0.0,
+              "automatic_top_up": 0.0,
+              "balance_not_updated_after_bank_transfer": 0.0,
+              "beneficiary_not_allowed": 0.0,
+              "cancel_transfer": 0.0,
+              "card_about_to_expire": 0.0,
+              "card_acceptance": 0.0,
+              "card_arrival": 0.0001,
+              "card_delivery_estimate": 0.9938,
+              "card_linking": 0.0,
+              "card_not_working": 0.0,
+              "card_payment_fee_charged": 0.0,
+              "card_payment_not_recognised": 0.0,
+              "card_swallowed": 0.0,
+              "cash_withdrawal_charge": 0.0,
+              "change_pin": 0.0,
+              "compromised_card": 0.0,
+              "contactless_not_working": 0.0,
+              "country_support": 0.0,
+              "declined_card_payment": 0.0,
+              "declined_cash_withdrawal": 0.0,
+              "declined_transfer": 0.0,
+              "edit_personal_details": 0.0,
+              "exchange_charge": 0.0,
+              "exchange_rate": 0.0,
+              "failed_transfer": 0.0,
+              "fiat_currency_support": 0.0,
+              "get_physical_card": 0.0,
+              "lost_or_stolen_card": 0.0,
+              "lost_or_stolen_phone": 0.0,
+              "order_physical_card": 0.0001,
+              "passcode_forgotten": 0.0,
+              "pending_card_payment": 0.0059,
+              "refund_not_showing_up": 0.0,
+              "request_refund": 0.0,
+              "terminate_account": 0.0,
+              "top_up_failed": 0.0
+            },
+            "confidence": 0.9894,
+            "answer_confidence": 0.9938,
+            "action": {
+              "act_probability": 1.0
+            },
+            "abstention": "passed",
+            "abstention_threshold": 0.9
+          }
+        }
+      },
+      "tournament": {
+        "model_calls": 2,
+        "elapsed_ms": [
+          1138.1421999999993
+        ],
+        "median_ms": 1138.1421999999993,
+        "answers": {
+          "intent": {
+            "type": "choice",
+            "choice": "card_arrival",
+            "probabilities": {
+              "card_arrival": 0.7583,
+              "card_not_working": 0.1262,
+              "lost_or_stolen_card": 0.1155
+            },
+            "confidence": 0.3443,
+            "answer_confidence": 0.7583,
+            "action": {
+              "act_probability": 1
+            },
+            "low_confidence": true
+          }
+        },
+        "usage": {
+          "input_tokens": 44,
+          "output_tokens": 0,
+          "state_tokens": 11,
+          "state_tokens_dropped": 0,
+          "truncated": false,
+          "truncated_questions": []
+        },
+        "tournament": {
+          "intent": {
+            "labels": [
+              "card_arrival",
+              "card_not_working",
+              "lost_or_stolen_card"
+            ],
+            "n": 40,
+            "rounds": 1
+          }
+        },
+        "reference_answers": {
+          "intent": {
+            "type": "choice",
+            "choice": "card_arrival",
+            "probabilities": {
+              "card_arrival": 0.7583,
+              "card_not_working": 0.1262,
+              "lost_or_stolen_card": 0.1155
+            },
+            "confidence": 0.3443,
+            "answer_confidence": 0.7583,
+            "action": {
+              "act_probability": 1.0
+            },
+            "low_confidence": true,
+            "abstention": "abstained",
+            "abstention_threshold": 0.9
+          }
+        }
+      }
+    },
+    {
+      "name": "mixed-group-8",
+      "plain": {
+        "model_calls": 1,
+        "elapsed_ms": [
+          880.9384000000009
+        ],
+        "median_ms": 880.9384000000009,
+        "answers": {
+          "dept": {
+            "type": "choice",
+            "choice": "billing",
+            "probabilities": {
+              "billing": 1,
+              "refunds": 0,
+              "fraud": 0,
+              "cards": 0,
+              "transfers": 0,
+              "loans": 0,
+              "savings": 0,
+              "kyc": 0,
+              "support": 0,
+              "legal": 0,
+              "sales": 0,
+              "tech": 0
+            },
+            "confidence": 1,
+            "answer_confidence": 1,
+            "action": {
+              "act_probability": 1
+            }
+          },
+          "urgent": {
+            "type": "noul",
+            "noul": 0.0001,
+            "confidence": 0.9999,
+            "answer_confidence": 0.9999,
+            "action": {
+              "act_probability": 1
+            }
+          }
+        },
+        "usage": {
+          "input_tokens": 137,
+          "output_tokens": 0,
+          "state_tokens": 12,
+          "state_tokens_dropped": 0,
+          "truncated": false,
+          "truncated_questions": []
+        },
+        "reference_answers": {
+          "dept": {
+            "type": "choice",
+            "choice": "billing",
+            "probabilities": {
+              "billing": 1.0,
+              "refunds": 0.0,
+              "fraud": 0.0,
+              "cards": 0.0,
+              "transfers": 0.0,
+              "loans": 0.0,
+              "savings": 0.0,
+              "kyc": 0.0,
+              "support": 0.0,
+              "legal": 0.0,
+              "sales": 0.0,
+              "tech": 0.0
+            },
+            "confidence": 1.0,
+            "answer_confidence": 1.0,
+            "action": {
+              "act_probability": 1.0
+            },
+            "abstention": "passed",
+            "abstention_threshold": 0.9
+          },
+          "urgent": {
+            "type": "noul",
+            "noul": 0.0001,
+            "confidence": 0.9999,
+            "answer_confidence": 0.9999,
+            "action": {
+              "act_probability": 1.0
+            },
+            "abstention": "passed",
+            "abstention_threshold": 0.9
+          }
+        }
+      },
+      "tournament": {
+        "model_calls": 2,
+        "elapsed_ms": [
+          1472.8806999999997
+        ],
+        "median_ms": 1472.8806999999997,
+        "answers": {
+          "dept": {
+            "type": "choice",
+            "choice": "billing",
+            "probabilities": {
+              "billing": 0.9367,
+              "tech": 0.0633
+            },
+            "confidence": 0.6596,
+            "answer_confidence": 0.9367,
+            "action": {
+              "act_probability": 1
+            }
+          },
+          "urgent": {
+            "type": "noul",
+            "noul": 0.0001,
+            "confidence": 0.9999,
+            "answer_confidence": 0.9999,
+            "action": {
+              "act_probability": 1
+            }
+          }
+        },
+        "usage": {
+          "input_tokens": 80,
+          "output_tokens": 0,
+          "state_tokens": 12,
+          "state_tokens_dropped": 0,
+          "truncated": false,
+          "truncated_questions": []
+        },
+        "tournament": {
+          "dept": {
+            "labels": [
+              "billing",
+              "tech"
+            ],
+            "n": 12,
+            "rounds": 1
+          }
+        },
+        "reference_answers": {
+          "dept": {
+            "type": "choice",
+            "choice": "billing",
+            "probabilities": {
+              "billing": 0.9367,
+              "tech": 0.0633
+            },
+            "confidence": 0.6596,
+            "answer_confidence": 0.9367,
+            "action": {
+              "act_probability": 1.0
+            },
+            "abstention": "passed",
+            "abstention_threshold": 0.9
+          },
+          "urgent": {
+            "type": "noul",
+            "noul": 0.0001,
+            "confidence": 0.9999,
+            "answer_confidence": 0.9999,
+            "action": {
+              "act_probability": 1.0
+            },
+            "abstention": "passed",
+            "abstention_threshold": 0.9
+          }
+        }
+      }
+    },
+    {
+      "name": "nothing-to-narrow",
+      "plain": {
+        "model_calls": 1,
+        "elapsed_ms": [
+          334.9136000000017
+        ],
+        "median_ms": 334.9136000000017,
+        "answers": {
+          "intent": {
+            "type": "choice",
+            "choice": "bug",
+            "probabilities": {
+              "bug": 0.7316,
+              "billing": 0.2229,
+              "other": 0.0456
+            },
+            "confidence": 0.3592,
+            "answer_confidence": 0.7316,
+            "action": {
+              "act_probability": 1
+            },
+            "low_confidence": true
+          }
+        },
+        "usage": {
+          "input_tokens": 34,
+          "output_tokens": 0,
+          "state_tokens": 8,
+          "state_tokens_dropped": 0,
+          "truncated": false,
+          "truncated_questions": []
+        },
+        "reference_answers": {
+          "intent": {
+            "type": "choice",
+            "choice": "bug",
+            "probabilities": {
+              "bug": 0.7316,
+              "billing": 0.2229,
+              "other": 0.0456
+            },
+            "confidence": 0.3592,
+            "answer_confidence": 0.7316,
+            "action": {
+              "act_probability": 1.0
+            },
+            "low_confidence": true,
+            "abstention": "abstained",
+            "abstention_threshold": 0.9
+          }
+        }
+      },
+      "tournament": {
+        "model_calls": 1,
+        "elapsed_ms": [
+          301.3107
+        ],
+        "median_ms": 301.3107,
+        "answers": {
+          "intent": {
+            "type": "choice",
+            "choice": "bug",
+            "probabilities": {
+              "bug": 0.7316,
+              "billing": 0.2229,
+              "other": 0.0456
+            },
+            "confidence": 0.3592,
+            "answer_confidence": 0.7316,
+            "action": {
+              "act_probability": 1
+            },
+            "low_confidence": true
+          }
+        },
+        "usage": {
+          "input_tokens": 34,
+          "output_tokens": 0,
+          "state_tokens": 8,
+          "state_tokens_dropped": 0,
+          "truncated": false,
+          "truncated_questions": []
+        },
+        "tournament": {
+          "intent": {
+            "labels": [
+              "bug",
+              "billing",
+              "other"
+            ],
+            "n": 3,
+            "rounds": 0
+          }
+        },
+        "reference_answers": {
+          "intent": {
+            "type": "choice",
+            "choice": "bug",
+            "probabilities": {
+              "bug": 0.7316,
+              "billing": 0.2229,
+              "other": 0.0456
+            },
+            "confidence": 0.3592,
+            "answer_confidence": 0.7316,
+            "action": {
+              "act_probability": 1.0
+            },
+            "low_confidence": true,
+            "abstention": "abstained",
+            "abstention_threshold": 0.9
+          }
+        }
+      }
+    },
+    {
+      "name": "banking-two-rounds",
+      "plain": {
+        "model_calls": 1,
+        "elapsed_ms": [
+          836.4117999999999
+        ],
+        "median_ms": 836.4117999999999,
+        "answers": {
+          "intent": {
+            "type": "choice",
+            "choice": "card_delivery_estimate",
+            "probabilities": {
+              "activate_my_card": 0,
+              "age_limit": 0,
+              "apple_pay_or_google_pay": 0,
+              "atm_support": 0,
+              "automatic_top_up": 0,
+              "balance_not_updated_after_bank_transfer": 0,
+              "beneficiary_not_allowed": 0,
+              "cancel_transfer": 0,
+              "card_about_to_expire": 0,
+              "card_acceptance": 0,
+              "card_arrival": 0.0001,
+              "card_delivery_estimate": 0.9938,
+              "card_linking": 0,
+              "card_not_working": 0,
+              "card_payment_fee_charged": 0,
+              "card_payment_not_recognised": 0,
+              "card_swallowed": 0,
+              "cash_withdrawal_charge": 0,
+              "change_pin": 0,
+              "compromised_card": 0,
+              "contactless_not_working": 0,
+              "country_support": 0,
+              "declined_card_payment": 0,
+              "declined_cash_withdrawal": 0,
+              "declined_transfer": 0,
+              "edit_personal_details": 0,
+              "exchange_charge": 0,
+              "exchange_rate": 0,
+              "failed_transfer": 0,
+              "fiat_currency_support": 0,
+              "get_physical_card": 0,
+              "lost_or_stolen_card": 0,
+              "lost_or_stolen_phone": 0,
+              "order_physical_card": 0.0001,
+              "passcode_forgotten": 0,
+              "pending_card_payment": 0.0059,
+              "refund_not_showing_up": 0,
+              "request_refund": 0,
+              "terminate_account": 0,
+              "top_up_failed": 0
+            },
+            "confidence": 0.9894,
+            "answer_confidence": 0.9938,
+            "action": {
+              "act_probability": 1
+            }
+          }
+        },
+        "usage": {
+          "input_tokens": 184,
+          "output_tokens": 0,
+          "state_tokens": 11,
+          "state_tokens_dropped": 0,
+          "truncated": false,
+          "truncated_questions": [],
+          "options": {
+            "intent": {
+              "total": 40,
+              "distinct": 38,
+              "tokens_per_option": 4
+            }
+          }
+        },
+        "reference_answers": {
+          "intent": {
+            "type": "choice",
+            "choice": "card_delivery_estimate",
+            "probabilities": {
+              "activate_my_card": 0.0,
+              "age_limit": 0.0,
+              "apple_pay_or_google_pay": 0.0,
+              "atm_support": 0.0,
+              "automatic_top_up": 0.0,
+              "balance_not_updated_after_bank_transfer": 0.0,
+              "beneficiary_not_allowed": 0.0,
+              "cancel_transfer": 0.0,
+              "card_about_to_expire": 0.0,
+              "card_acceptance": 0.0,
+              "card_arrival": 0.0001,
+              "card_delivery_estimate": 0.9938,
+              "card_linking": 0.0,
+              "card_not_working": 0.0,
+              "card_payment_fee_charged": 0.0,
+              "card_payment_not_recognised": 0.0,
+              "card_swallowed": 0.0,
+              "cash_withdrawal_charge": 0.0,
+              "change_pin": 0.0,
+              "compromised_card": 0.0,
+              "contactless_not_working": 0.0,
+              "country_support": 0.0,
+              "declined_card_payment": 0.0,
+              "declined_cash_withdrawal": 0.0,
+              "declined_transfer": 0.0,
+              "edit_personal_details": 0.0,
+              "exchange_charge": 0.0,
+              "exchange_rate": 0.0,
+              "failed_transfer": 0.0,
+              "fiat_currency_support": 0.0,
+              "get_physical_card": 0.0,
+              "lost_or_stolen_card": 0.0,
+              "lost_or_stolen_phone": 0.0,
+              "order_physical_card": 0.0001,
+              "passcode_forgotten": 0.0,
+              "pending_card_payment": 0.0059,
+              "refund_not_showing_up": 0.0,
+              "request_refund": 0.0,
+              "terminate_account": 0.0,
+              "top_up_failed": 0.0
+            },
+            "confidence": 0.9894,
+            "answer_confidence": 0.9938,
+            "action": {
+              "act_probability": 1.0
+            },
+            "abstention": "passed",
+            "abstention_threshold": 0.9
+          }
+        }
+      },
+      "tournament": {
+        "model_calls": 3,
+        "elapsed_ms": [
+          2280.5352999999996
+        ],
+        "median_ms": 2280.5352999999996,
+        "answers": {
+          "intent": {
+            "type": "choice",
+            "choice": "card_arrival",
+            "probabilities": {
+              "card_arrival": 0.6216,
+              "card_not_working": 0.1303,
+              "order_physical_card": 0.248
+            },
+            "confidence": 0.1745,
+            "answer_confidence": 0.6216,
+            "action": {
+              "act_probability": 1
+            },
+            "low_confidence": true
+          }
+        },
+        "usage": {
+          "input_tokens": 41,
+          "output_tokens": 0,
+          "state_tokens": 11,
+          "state_tokens_dropped": 0,
+          "truncated": false,
+          "truncated_questions": []
+        },
+        "tournament": {
+          "intent": {
+            "labels": [
+              "card_arrival",
+              "card_not_working",
+              "order_physical_card"
+            ],
+            "n": 40,
+            "rounds": 2
+          }
+        },
+        "reference_answers": {
+          "intent": {
+            "type": "choice",
+            "choice": "card_arrival",
+            "probabilities": {
+              "card_arrival": 0.6216,
+              "card_not_working": 0.1303,
+              "order_physical_card": 0.248
+            },
+            "confidence": 0.1745,
+            "answer_confidence": 0.6216,
+            "action": {
+              "act_probability": 1.0
+            },
+            "low_confidence": true,
+            "abstention": "abstained",
+            "abstention_threshold": 0.9
+          }
+        }
+      }
+    }
+  ],
+  "timing_note": "One warmup per case and strategy; elapsed samples exclude loading and hashing. Small parity experiment, not an accuracy or throughput benchmark.",
+  "checked": "Exact state/question/option order, kwargs, call counts, usage, finalists and winners; numeric answer fields within tolerance. Runtime-specific model names and extra abstention annotations are outside the check."
+}

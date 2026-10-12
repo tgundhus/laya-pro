@@ -82,6 +82,7 @@ def test_mixed_groups_keep_order_and_lru(fake_agent, capacity, expected):
     ("text", TypeError, "requests must be a sequence"),
     ([None], TypeError, "request 0"),
     ([{"questions": Q}], ValueError, "request 0 is missing required key 'state'"),
+    ([request("valid"), request(None)], TypeError, "request 1 'state' must not be None"),
     ([{"state": "x"}], ValueError, "request 0 is missing required key 'questions'"),
     ([request("x"), {"state": "y", "questions": None}], TypeError, "request 1 'questions'"),
     ([request("x"), request("y", model="invalid")], ValueError, "unknown model"),
@@ -636,3 +637,80 @@ def test_an_agent_that_predates_both_lang_and_sort_by_length_still_serves(monkey
                                     request("b", model="english", lang="de")], sort_by_length=True)
     assert [r["routing"]["model"] for r in results] == ["english", "english"]
     assert calls == [2]  # both keywords dropped, then one call for the group
+
+
+def test_sort_diagnostics_report_schema_and_budget_groups(monkeypatch):
+    router, calls = _sort_recording_router(monkeypatch, accepts_sort=True)
+    q2 = {"urgent": {"type": "noul", "instructions": "Urgent?"}}
+    items = [request("a"), request("b"), request("c"),
+             request("d", questions=q2), request("e", questions=q2),
+             request("f", max_len=512)]
+    diagnostics = {"caller": "kept"}
+    results = router.predict_batch(items, batch_size=2, sort_by_length=True, diagnostics=diagnostics)
+    assert len(results) == len(items)
+    assert [call["n"] for call in calls] == [3, 2, 1]
+    assert diagnostics == {"caller": "kept", "sort_by_length": {
+        "groups": 3, "reordered": 1, "smallest": 1, "largest": 3}}
+
+
+@pytest.mark.parametrize("batch_size,reordered", [(None, 0), (0, 0), (1, 0), (2, 1), (3, 0), (4, 0)])
+def test_sort_diagnostics_follow_per_group_chunk_gate(monkeypatch, batch_size, reordered):
+    router, _ = _sort_recording_router(monkeypatch, accepts_sort=True)
+    diagnostics = {}
+    router.predict_batch([request("a"), request("b"), request("c")], batch_size=batch_size,
+                         sort_by_length=True, diagnostics=diagnostics)
+    assert diagnostics["sort_by_length"] == {
+        "groups": 1, "reordered": reordered, "smallest": 3, "largest": 3}
+
+
+def test_sort_diagnostics_count_only_requests_that_reach_an_agent(monkeypatch):
+    router, calls = _sort_recording_router(monkeypatch, accepts_sort=True)
+
+    def cached(ctx):
+        if ctx.states[0] == "cached":
+            ctx.skip([{"answers": {"seen": "cached"}, "usage": {}}])
+
+    diagnostics = {}
+    results = router.predict_batch([request("cached"), request("b"), request("c")], batch_size=2,
+                                   sort_by_length=True, diagnostics=diagnostics, on_predict_start=cached)
+    assert results[0]["answers"]["seen"] == "cached"
+    assert [call["n"] for call in calls] == [2]
+    assert diagnostics["sort_by_length"] == {
+        "groups": 1, "reordered": 0, "smallest": 2, "largest": 2}
+    diagnostics = {"caller": "untouched"}
+    calls.clear()
+    router.predict_batch([request("cached")], sort_by_length=True,
+                         diagnostics=diagnostics, on_predict_start=cached)
+    assert diagnostics == {"caller": "untouched"}
+    assert calls == []
+
+
+def test_sort_diagnostics_legacy_agent_reports_no_reordering(monkeypatch):
+    router, calls = _sort_recording_router(monkeypatch, accepts_sort=False)
+    diagnostics = {}
+    router.predict_batch([request("a"), request("b"), request("c")], batch_size=2,
+                         sort_by_length=True, diagnostics=diagnostics)
+    assert calls == [{"n": 3, "sort": "unsupported"}]
+    assert diagnostics["sort_by_length"] == {
+        "groups": 1, "reordered": 0, "smallest": 3, "largest": 3}
+
+
+def test_sort_diagnostics_remain_untouched_when_disabled_or_empty(monkeypatch):
+    router, _ = _sort_recording_router(monkeypatch, accepts_sort=True)
+    diagnostics = {"sort_by_length": "earlier result"}
+    router.predict_batch([request("a")], diagnostics=diagnostics)
+    assert diagnostics == {"sort_by_length": "earlier result"}
+    assert router.predict_batch([], sort_by_length=True, diagnostics=diagnostics) == []
+    assert diagnostics == {"sort_by_length": "earlier result"}
+
+
+@pytest.mark.parametrize("diagnostics", [[], False, 0, "report"])
+def test_sort_diagnostics_invalid_shape_fails_before_routing(fake_agent, diagnostics):
+    built, _ = fake_agent
+    routed = []
+    router = Router()
+    with pytest.raises(TypeError, match="diagnostics must be a dict or None"):
+        router.predict_batch([request("a")], diagnostics=diagnostics,
+                             hooks=[type("Record", (), {"on_route": lambda self, ctx: routed.append(ctx)})()])
+    assert built == []
+    assert routed == []

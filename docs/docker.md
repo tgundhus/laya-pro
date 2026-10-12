@@ -348,6 +348,7 @@ These apply to the `laya-serve` service only.
 | `LAYA_MAX_BATCH_TOKENS` | `131072` | tokens one batch forward pass may collate; larger batches are split into several passes |
 | `LAYA_IDLE_UNLOAD_SECONDS` | `0` | unload idle checkpoints after this many seconds; the next request loads them again |
 | `LAYA_JEV_STRICT` | `0` | `1` projects responses onto the strict Jev wire contract, removing Laya extensions |
+| `LAYA_TOURNAMENT_GROUP` | `0` | Opt-in HTTP choice elimination in groups of 2–100; choices can then contain up to 255 labels. Ordered choices keep the one-pass cap |
 | `LAYA_SHA256_DIGESTS` | (none) | JSON digests checked before a checkpoint is parsed: `{artifact: digest}` for every checkpoint, or `{model: {artifact: digest}}` per checkpoint. See [Security](security.md) |
 | `LAYA_EXTRA_MODELS` | (none) | Additional checkpoint names and paths as JSON |
 | `LAYA_CACHE` | `0` | Enable process-local memory decision caching |

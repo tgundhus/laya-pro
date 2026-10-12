@@ -232,68 +232,14 @@ jobs:
         run: python -c "import laya; print(laya.__version__); print(sorted(laya.__all__))"
         shell: bash
 
-      # Same suites as the Linux job. Guarded with -f so a suite added by another open branch
-      # cannot make this job red on a tree that does not have it yet.
-      - name: Routing and language-detection tests
-        run: |
-          for t in test_router test_criteria test_batch test_predict_long \
-                   test_lang_fast_paths test_consistency test_question_heads test_route_memo \
-                   test_structured test_structured_api test_onnx_lang_parity \
-                   test_download test_verify_checkpoints test_shortlist test_decision_model \
-                   test_head_checkpointing test_packaging test_doc_tables \
-                   test_tokenizer_cache test_tokenizer_concurrency test_lazy_import \
-                   test_runtime_fixes test_lang_guess test_identifier_complexity \
-                   test_lang_stats test_calibration_persistence test_calibrate test_context_manager \
-                   test_criteria_normalization test_docker_entrypoint \
-                   test_empty_questions test_router_memory test_shortlist_cosine \
-                   test_temperature_loading test_confidence test_cli test_mcp \
-                   test_mcp_device \
-                   test_langchain test_portability test_training test_train \
-                   test_example_server_limits test_blank_lang_routing \
-                   test_export_onnx_safety test_load_errors test_revision_pinning; do
-            if [ -f "tests/$t.py" ]; then python "tests/$t.py"; fi
-          done
-        shell: bash
-
-      - name: Prediction hook tests
-        run: |
-          python tests/test_hooks.py
-          python tests/test_hooks_api.py
-        shell: bash
-
-      - name: Question token reuse tests
-        run: python tests/test_question_token_reuse.py
-        shell: bash
-
-      # Same pytest suites as the Linux job. They are named explicitly rather than added to
-      # the loop above, because the loop runs each file as a script and that is exactly what does
-      # not execute a pytest suite (#374).
-      - name: Pytest suites (serve, batch, system-one, audit regressions, truncation, compile)
-        run: |
-          python -m pytest tests/test_serve.py \
-                           tests/test_router_batch.py \
-                           tests/test_predict_batch.py \
-                           tests/test_system_one_lang.py \
-                           tests/test_audit_regressions.py \
-                           tests/test_truncation_direction.py \
-                           tests/test_compile.py \
-                           -q
-        shell: bash
-
-      # The Linux job's guard, repeated here: the install is what makes test_mcp.py and
-      # test_langchain.py exercise their real base classes, and nothing else proves it took. mcp
-      # and httpx are asserted the same way because their suites skip instead of failing.
       - name: Integrations run on their real base classes
         run: |
           python -c "import mcp, httpx, langchain_core"
-          python -c "from laya.integrations.langchain import RunnableSerializable; \
-            assert RunnableSerializable is not object, \
-            'langchain-core is missing: laya.integrations.langchain fell back to a plain object'"
-          python tests/test_langchain_real_mode.py
+          python -c "from laya.integrations.langchain import RunnableSerializable; assert RunnableSerializable is not object"
         shell: bash
 
-      - name: Email cleaning tests
-        run: python tests/test_email.py
+      - name: Test suites
+        run: python scripts/test_suites.py
         shell: bash
 
   lint:

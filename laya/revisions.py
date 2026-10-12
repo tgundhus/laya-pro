@@ -57,7 +57,9 @@ def _reviewed_pin(model_id_or_path: str) -> Optional[str]:
 def resolve_revision(model_id_or_path: str, revision: Optional[str] = None) -> Optional[str]:
     """Pick the revision to download.
 
-    An explicit `revision` is returned unchanged. Otherwise ``LAYA_REVISION``, stripped; empty or
+    The argument and environment value are stripped. A truthy blank argument suppresses the
+    environment and returns None; an empty argument allows the environment to apply. Otherwise
+    use ``LAYA_REVISION``, stripped; empty or
     unset means "not asked for". The variable holds either a commit SHA/branch/tag, applied to
     every checkpoint load the way `Router(revision=)` applies one, or the word ``reviewed``, which
     looks `model_id_or_path` up in `PINNED_REVISIONS` -- case-insensitively, the way the Hub

@@ -44,9 +44,9 @@ Everything is environment variables, so one image serves a laptop dev run and a 
 | `LAYA_CACHE_RENEW_ON_HIT` | renew expiry on use | `0` |
 | `LAYA_LOG_LEVEL` | uvicorn log level | `info` |
 | `LAYA_MAX_CONCURRENT` | requests admitted past auth at once; excess gets `503` | `16` |
-| `LAYA_MAX_BATCH_TOKENS` | cap on tokens collated in a batch forward pass | `131072` |
 | `LAYA_MAX_BATCH_TOKENS` | tokens one `/v1/systemone/batch` FORWARD PASS may collate (`states` x questions x row width); a larger batch is split into several passes, not refused | `131072` |
 | `LAYA_JEV_STRICT` | serve the strict Jev wire contract: no root `routing`, no per-answer `action` / `answer_confidence`, no `confidence` on noul answers, and `usage` reduced to `input_tokens` + `output_tokens`. For clients that validate the response against the Jev contract with no extra fields | `0` |
+| `LAYA_TOURNAMENT_GROUP` | Opt-in choice elimination on the single endpoint; integer group size 2–100, otherwise disabled | `0` |
 
 For a deployment published under a prefix such as `/laya`, set `LAYA_ROOT_PATH=/laya`.
 FastAPI uses it when generating OpenAPI and Swagger UI URLs. Configure the reverse proxy to
@@ -156,6 +156,24 @@ what was chosen and why. A value that looks like a filesystem path or an unpubli
 `/v1/systemone/batch`: this server cannot load it, and answering with another checkpoint would
 hide that. The detail is the same `unknown model` text core raises, plus the reminder to omit
 `model` to let the router choose.
+
+### Large choices
+
+Set `LAYA_TOURNAMENT_GROUP=16` to answer large choices by elimination. Each round reads groups
+of labels; the group winners meet in a final prediction. This admits up to 255 options on the
+single endpoint. Batch inference retains its 100-option cap. Generated calls contain at most
+64 questions. More rounds cost more inference; benchmark representative questions before enabling it.
+The original question schema selects the checkpoint before elimination; every round keeps that
+checkpoint and its detected language. Route hooks still run on each prediction.
+
+`probabilities` still names every original label, with zero for eliminated labels and the final
+round's distribution for finalists. `x_tournament` reports `finalists` and `rounds`.
+`confidence`, `answer_confidence` and abstention describe that final round, not a calibrated
+comparison of all original labels. `usage.input_tokens` includes every round; the remaining
+usage fields describe the final call. Strict mode omits `x_tournament`.
+
+If a large choice has `option_order` or non-string labels, the whole request uses one pass and
+retains the 100-option cap. An oversized request is refused before inference.
 
 ### Response
 
