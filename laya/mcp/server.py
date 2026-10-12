@@ -99,7 +99,8 @@ _GUARDRAILS = (
 # with the checkpoints, and a copy here would be a second thing to keep current. An invalid name
 # comes back as an error that lists every accepted one.
 _MODEL_DOC = (
-    " model: 'auto' (default) lets the router pick the checkpoint; anything else names one, and "
+    " model: null (default), 'auto', or omitted all let the router pick the checkpoint; "
+    "anything else names one, and "
     "core's aliases and casing are honoured ('en', 'ML', 'laya-multilingual'). The answer's "
     "routing.model always reports the canonical name."
 )
@@ -315,7 +316,7 @@ def laya_route_tool(
 def laya_predict_tool(
     state: dict,
     questions: dict,
-    model: str = "auto",
+    model: str | None = None,
     task: str | None = None,
     lang: str | None = None,
     lang_guess: str | None = None,
@@ -355,18 +356,31 @@ def laya_predict_tool(
         + _GUARDRAILS
     ),
 )
-def laya_predict_batch_tool(requests: list, batch_size: int = 0, hooks_timeout: float = 0,
-                             min_confidence: float = -1, sort_by_length: bool = False) -> str:
+def laya_predict_batch_tool(requests: list, batch_size: int | None = 0, hooks_timeout: float | None = 0,
+                            min_confidence: float | None = None,
+                            sort_by_length: bool = False) -> str:
     """Answer many typed-question requests in one batched call."""
     router = _router_or_error()
     # batch_size=0 means "unset": MCP clients send defaults eagerly, and
-    # None is what Router.predict_batch takes as "no forward-pass cap".
+    # None is what Router.predict_batch takes as "no forward-pass cap". hooks_timeout reads
+    # a numeric 0 the same way -- and deliberately only a numeric 0, because `False == 0`
+    # would otherwise fold a boolean, which `_validate_hooks_timeout` refuses by contract
+    # ("would silently turn True into a one-second deadline").
+    # Everything else -- negatives and booleans included -- goes to the tools layer, which
+    # owns validation and answers with a ToolError naming the value. Collapsing those here
+    # instead turned an invalid deadline into "no deadline" and an invalid gate into
+    # "no gate": the caller got a clean response and no way to tell the control it asked
+    # for had been dropped.
+    if not isinstance(hooks_timeout, bool) and hooks_timeout == 0:
+        hooks_timeout = None
+    if not isinstance(batch_size, bool) and batch_size == 0:
+        batch_size = None
     return _wrap(
         laya_predict_batch,
         requests=requests,
-        batch_size=batch_size or None,
-        hooks_timeout=hooks_timeout if hooks_timeout > 0 else None,
-        min_confidence=min_confidence if min_confidence >= 0 else None,
+        batch_size=batch_size,
+        hooks_timeout=hooks_timeout,
+        min_confidence=min_confidence,
         sort_by_length=sort_by_length,
         router=router,
     )
@@ -387,15 +401,17 @@ def laya_predict_batch_tool(requests: list, batch_size: int = 0, hooks_timeout: 
         + _GUARDRAILS
     ),
 )
-def laya_route_batch_tool(requests: list, hooks_timeout: float = 0) -> str:
+def laya_route_batch_tool(requests: list, hooks_timeout: float | None = 0) -> str:
     """Route many requests to checkpoints without a forward pass."""
     router = _router_or_error()
     # hooks_timeout=0 means "unset": MCP clients send defaults eagerly, and
     # None is what Router.route_batch takes as "use my own timeout".
+    if not isinstance(hooks_timeout, bool) and hooks_timeout == 0:
+        hooks_timeout = None
     return _wrap(
         laya_route_batch,
         requests=requests,
-        hooks_timeout=hooks_timeout or None,
+        hooks_timeout=hooks_timeout,
         router=router,
     )
 
@@ -411,6 +427,10 @@ def laya_route_batch_tool(requests: list, hooks_timeout: float = 0) -> str:
         "scores, k, option count, and whether the question passed through unshortlisted). "
         "Shortlisting narrows the label set; head_max_len decides how many tokens each kept label "
         "is read with, so the two together are the fix for a large-criteria question. "
+        "A question that narrows cannot keep a caller-supplied option_order: the order covers "
+        "every option while the answer covers the kept labels only, so it is dropped rather "
+        "than remapped, and each such question is named under option_order_dropped with its "
+        "old and kept option counts. "
         + _GUARDRAILS
         + _MODEL_DOC
         + _CONTROLS_DOC
@@ -419,7 +439,7 @@ def laya_route_batch_tool(requests: list, hooks_timeout: float = 0) -> str:
 def laya_shortlist_tool(
     state: dict,
     questions: dict,
-    model: str = "auto",
+    model: str | None = None,
     k: int = 20,
     task: str | None = None,
     lang: str | None = None,
@@ -520,7 +540,7 @@ def laya_preset_tool(
         + _GUARDRAILS
     ),
 )
-def laya_decide_tool(state: dict, schema: dict, model: str = "auto",
+def laya_decide_tool(state: dict, schema: dict, model: str | None = None,
                      min_confidence: float | None = None) -> str:
     """Answer a JSON-schema-shaped decision and return the decided values."""
     router = _router_or_error()

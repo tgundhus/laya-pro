@@ -179,6 +179,11 @@ option count, and whether the question passed through unshortlisted for each sho
 question. A question with `k` at or past its option count is passed through unchanged, so
 its cosine scores come back `null` rather than empty.
 
+When shortlisting narrows a choice carrying `option_order`, it drops that full-set order and
+reports `option_order_dropped` with the original `n` and the number `kept` for each affected
+question. Invalid permutations are still refused before prediction. Choices passed through
+unchanged keep their order.
+
 `state` must be a non-empty JSON object. `questions` must be a non-empty object whose values use
 Laya's typed question schema. `laya_preset` accepts the same five presets the CLI does: `email`,
 `guard`, `moderation`, `triage`, and the router workflow, whose canonical name on this surface is
@@ -196,6 +201,10 @@ does). `lang_guess` only participates in routing, so like `task` it is refused o
 `model` -- a pinned checkpoint has nothing left to route. `laya_predict` and `laya_shortlist` also
 take `max_len`/`head_max_len` for the answering token budget and `min_confidence` for the abstention
 gate.
+
+Omitted, `null` and `"auto"` model values all allow automatic routing. For batch tools, omitted
+controls inherit the Router configuration; numeric `0` unsets `batch_size` and `hooks_timeout`.
+Boolean, negative and non-finite controls are refused, rather than silently discarded.
 
 A prediction call has the same shape as the SDK's typed call:
 

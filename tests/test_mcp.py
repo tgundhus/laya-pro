@@ -122,8 +122,8 @@ def test_device():
     ok("device/report_keys", set(rep) >= {"device", "torch_cuda", "torch_version"})
     ok("device/report_cuda_bool", isinstance(rep["torch_cuda"], bool))
 
-    # The auto-detect branch is a second implementation of Agent's own chain
-    # (laya/agent.py:355-362), so it has to be exercised on devices the runner does not have.
+    # The auto-detect branch is a second implementation of the availability chain inside
+    # `laya/agent.py::Agent.__init__`, so it has to be exercised on devices the runner does not have.
     # `resolve_device` imports torch inside its body, which makes the module the seam: a fake
     # here forces every branch without CUDA, MPS or XPU hardware. Before this block the only
     # auto-detect assertion was the domain check above, and it passed on a narrower chain.
@@ -389,10 +389,10 @@ def test_model_forwarding():
         def __init__(self):
             self.calls = []
 
-        def predict(self, state, questions, **kwargs):
+        def predict(self, state, questions, model="auto", **kwargs):
             # No `routing` key on purpose: what the tool then reports is the name it settled on,
             # which is the piece an alias could have leaked through.
-            self.calls.append(kwargs)
+            self.calls.append({"model": model, **kwargs})
             return {"answers": {"department": {"choice": "billing", "confidence": 0.94}}}
 
     router = EchoRouter()
@@ -402,6 +402,10 @@ def test_model_forwarding():
        repr(router.calls))
     ok("forward/reports_canonical", by_alias["routing"]["model"] == "english", repr(by_alias["routing"]))
     ok("forward/answers_identical", by_alias["answers"] == by_name["answers"])
+
+    laya_predict(STATE, QUESTIONS, model=None, router=router)
+    ok("forward/model_none_resolves_auto", router.calls[-1].get("model") == "auto",
+       repr(router.calls[-1]))
 
 
 
@@ -595,27 +599,73 @@ def test_option_order_forwarding():
                       "invalid_questions")
     ok("option_order/batch_invalid_not_called", router.predict_batch_calls == [])
 
-    # Shortlist passthrough (n <= k): the question is answered as given, so the order applies.
+    # Shortlist passthrough (n <= k): the question is answered as given, so the order applies
+    # and nothing was dropped.
     router = ShortlistRouter({"english": ShortlistAgent()})
-    laya_shortlist(STATE, order_q, model="english", k=5, router=router, embed_fn=_raising_embed)
+    out = laya_shortlist(STATE, order_q, model="english", k=5, router=router, embed_fn=_raising_embed)
     ok("option_order/shortlist_passthrough_forwarded",
        router.seen_questions["team"].get("option_order") == [2, 0, 1], repr(router.seen_questions))
-    # A narrowed choice is answered over k ranked labels, so an order over all n options no
-    # longer describes it -- the agent rejects the stale full-length order with a ValueError,
-    # which the wrapper would report as internal_error. Refuse it as a caller error up front.
+    ok("option_order/shortlist_passthrough_no_drop_signal",
+       "option_order_dropped" not in out, repr(out.get("option_order_dropped")))
+    # A narrowed choice is answered over its k ranked labels, so an order over all n options no
+    # longer describes it. Core drops the order rather than remapping it (#1063), so the call
+    # answers over the kept labels and the wrapper reports the drop per question, with the old
+    # and kept option counts: core's RuntimeWarning never reaches an MCP client.
     router = ShortlistRouter({"english": ShortlistAgent()})
     narrowed = {"topic": dict(SHORTLIST_QUESTIONS["topic"], option_order=[4, 3, 2, 1, 0])}
-    expect_tool_error("option_order/shortlist_narrowed_rejected",
-                      lambda: laya_shortlist(STATE, narrowed, model="english", k=2,
+    out = laya_shortlist(STATE, narrowed, model="english", k=2,
+                         router=router, embed_fn=_tie_embed)
+    ok("option_order/shortlist_narrowed_answers",
+       out["answers"]["topic"]["choice"] == "billing", repr(out["answers"]))
+    ok("option_order/shortlist_narrowed_order_dropped",
+       "option_order" not in router.seen_questions["topic"], repr(router.seen_questions["topic"]))
+    ok("option_order/shortlist_narrowed_drop_signal",
+       out.get("option_order_dropped") == {"topic": {"n": 5, "kept": 2}},
+       repr(out.get("option_order_dropped")))
+    ok("option_order/shortlist_narrowed_caller_order_kept",
+       narrowed["topic"]["option_order"] == [4, 3, 2, 1, 0], repr(narrowed["topic"]))
+    # The drop is reported in the response, never printed: the MCP server speaks JSON-RPC
+    # on stdout, and core's RuntimeWarning about the drop belongs on stderr.
+    import contextlib
+    import io
+
+    buf = io.StringIO()
+    router = ShortlistRouter({"english": ShortlistAgent()})
+    with contextlib.redirect_stdout(buf):
+        laya_shortlist(STATE, narrowed, model="english", k=2,
+                       router=router, embed_fn=_tie_embed)
+    ok("option_order/shortlist_narrowed_stdout_clean",
+       buf.getvalue() == "", repr(buf.getvalue()[:100]))
+    # A structurally invalid order (not a permutation) is still refused up front, before any
+    # predict: only a valid order on a narrowed question reaches the drop path.
+    router = ShortlistRouter({"english": ShortlistAgent()})
+    bad = {"topic": dict(SHORTLIST_QUESTIONS["topic"], option_order=[0, 0, 0, 0, 0])}
+    expect_tool_error("option_order/shortlist_invalid_rejected",
+                      lambda: laya_shortlist(STATE, bad, model="english", k=2,
                                              router=router, embed_fn=_tie_embed),
                       "invalid_questions")
-    ok("option_order/shortlist_narrowed_not_called", router.seen_questions is None)
+    ok("option_order/shortlist_invalid_not_called", router.seen_questions is None)
+    # The signal survives the JSON boundary an MCP client reads: _wrap dumps whatever the tool
+    # returns, so the drop has to come back under its real key name after json round-trip.
+    import json
+
+    from laya.mcp import server as server_mod
+
+    router = ShortlistRouter({"english": ShortlistAgent()})
+    payload = json.loads(server_mod._wrap(
+        laya_shortlist, state=STATE, questions=narrowed, model="english", k=2,
+        router=router, embed_fn=_tie_embed))
+    ok("option_order/shortlist_narrowed_mcp_json_drop_signal",
+       payload.get("option_order_dropped") == {"topic": {"n": 5, "kept": 2}},
+       repr(payload.get("option_order_dropped")))
     # Non-choice questions are never narrowed, so their order is forwarded whatever k is.
     router = ShortlistRouter({"english": ShortlistAgent()})
     scored = {"urgency": dict(SHORTLIST_QUESTIONS["urgency"], option_order=[1, 0])}
-    laya_shortlist(STATE, scored, model="english", k=1, router=router, embed_fn=_raising_embed)
+    out = laya_shortlist(STATE, scored, model="english", k=1, router=router, embed_fn=_raising_embed)
     ok("option_order/shortlist_non_choice_forwarded",
        router.seen_questions["urgency"].get("option_order") == [1, 0], repr(router.seen_questions))
+    ok("option_order/shortlist_non_choice_no_drop_signal",
+       "option_order_dropped" not in out, repr(out.get("option_order_dropped")))
 
 
 def test_real_device():
@@ -849,6 +899,9 @@ def test_shortlist():
     ok("shortlist/non_choice_forwarded", router.seen_questions["urgency"] == SHORTLIST_QUESTIONS["urgency"])
     ok("shortlist/non_choice_no_meta", "urgency" not in out["shortlist"], repr(sorted(out["shortlist"])))
     ok("shortlist/input_not_mutated", len(SHORTLIST_QUESTIONS["topic"]["criteria"]) == 5)
+    # No order was supplied, so there is nothing to drop and no signal in the response.
+    ok("shortlist/no_order_no_drop_signal",
+       "option_order_dropped" not in out, repr(out.get("option_order_dropped")))
 
     # Auto mode: route once, then answer with an explicit model= so the forward
     # pass does not re-route; the reported routing is the real route decision.
@@ -1130,6 +1183,94 @@ def test_batch_predict():
     expect_tool_error("batch/predict_count_mismatch",
                       lambda: laya_predict_batch(BATCH_REQUESTS, router=ShortRouter()),
                       "internal_error")
+
+
+def test_batch_tool_control_forwarding():
+    """A control the tool cannot honour must reach the layer that rejects it, not vanish.
+
+    `laya_predict_batch` owns validation and answers an out-of-range `hooks_timeout` or
+    `min_confidence` with a ToolError naming the value. Collapsing those to None before the call
+    turned an invalid deadline into "no deadline" and an invalid gate into "no gate": the client
+    got a clean response and no way to tell the control it asked for had been dropped (#707).
+    """
+    import laya.mcp.server as server_mod
+
+    seen = {}
+
+    def fake_wrap(fn, **kwargs):
+        seen["kwargs"] = kwargs
+        return "{}"
+
+    real_router_or_error, real_wrap = server_mod._router_or_error, server_mod._wrap
+
+    def fake_router_or_error():
+        return BatchRouter()
+
+    server_mod._router_or_error = fake_router_or_error
+    server_mod._wrap = fake_wrap
+    try:
+        # Unset stays unset: 0 is what an eager MCP client sends for a default, and the
+        # declaration defaults are unset too.
+        server_mod.laya_predict_batch_tool(requests=BATCH_REQUESTS, hooks_timeout=0)
+        ok("batch_tool/hooks_timeout_zero_is_unset", seen["kwargs"]["hooks_timeout"] is None,
+           repr(seen["kwargs"]["hooks_timeout"]))
+        server_mod.laya_predict_batch_tool(requests=BATCH_REQUESTS)
+        ok("batch_tool/hooks_timeout_default_is_unset", seen["kwargs"]["hooks_timeout"] is None,
+           repr(seen["kwargs"]["hooks_timeout"]))
+        ok("batch_tool/min_confidence_default_is_unset", seen["kwargs"]["min_confidence"] is None,
+           repr(seen["kwargs"]["min_confidence"]))
+
+        # A value in range is forwarded as given.
+        server_mod.laya_predict_batch_tool(requests=BATCH_REQUESTS, hooks_timeout=1.5,
+                                           min_confidence=0.75)
+        ok("batch_tool/hooks_timeout_forwarded", seen["kwargs"]["hooks_timeout"] == 1.5,
+           repr(seen["kwargs"]["hooks_timeout"]))
+        ok("batch_tool/min_confidence_forwarded", seen["kwargs"]["min_confidence"] == 0.75,
+           repr(seen["kwargs"]["min_confidence"]))
+
+        # A bool is never an unset marker: `False == 0` in Python, so a plain equality or
+        # `or None` fold would hide the tools layer's explicit refusal of booleans.
+        for bad in (True, False):
+            server_mod.laya_predict_batch_tool(requests=BATCH_REQUESTS, hooks_timeout=bad)
+            ok("batch_tool/hooks_timeout_%r_reaches_tools" % (bad,),
+               seen["kwargs"]["hooks_timeout"] is bad, repr(seen["kwargs"]["hooks_timeout"]))
+            server_mod.laya_predict_batch_tool(requests=BATCH_REQUESTS, batch_size=bad)
+            ok("batch_tool/batch_size_%r_reaches_tools" % (bad,),
+               seen["kwargs"]["batch_size"] is bad, repr(seen["kwargs"]["batch_size"]))
+            server_mod.laya_route_batch_tool(requests=BATCH_REQUESTS, hooks_timeout=bad)
+            ok("batch_tool/route_timeout_%r_reaches_tools" % (bad,),
+               seen["kwargs"]["hooks_timeout"] is bad, repr(seen["kwargs"]["hooks_timeout"]))
+
+        # Out of range reaches the tools layer untouched instead of being folded into "unset".
+        for bad in (-1.0, -0.5):
+            server_mod.laya_predict_batch_tool(requests=BATCH_REQUESTS, hooks_timeout=bad)
+            ok("batch_tool/hooks_timeout_%r_reaches_tools" % (bad,),
+               seen["kwargs"]["hooks_timeout"] == bad, repr(seen["kwargs"]["hooks_timeout"]))
+            server_mod.laya_predict_batch_tool(requests=BATCH_REQUESTS, min_confidence=bad)
+            ok("batch_tool/min_confidence_%r_reaches_tools" % (bad,),
+               seen["kwargs"]["min_confidence"] == bad, repr(seen["kwargs"]["min_confidence"]))
+    finally:
+        server_mod._router_or_error, server_mod._wrap = real_router_or_error, real_wrap
+
+    # And the tools layer does refuse them, which is what makes the forwarding observable.
+    expect_tool_error("batch_tool/hooks_timeout_rejected_downstream",
+                      lambda: laya_predict_batch(BATCH_REQUESTS, hooks_timeout=-0.5,
+                                                 router=BatchRouter()),
+                      "invalid_hooks_timeout")
+    expect_tool_error("batch_tool/hooks_timeout_false_rejected_downstream",
+                      lambda: laya_predict_batch(BATCH_REQUESTS, hooks_timeout=False,
+                                                 router=BatchRouter()),
+                      "invalid_hooks_timeout")
+    expect_tool_error("batch_tool/min_confidence_rejected_downstream",
+                      lambda: laya_predict_batch(BATCH_REQUESTS, min_confidence=-0.5,
+                                                 router=BatchRouter()),
+                      "invalid_min_confidence")
+    expect_tool_error("batch_tool/bool_size_rejected_downstream",
+                      lambda: laya_predict_batch(BATCH_REQUESTS, batch_size=False, router=BatchRouter()),
+                      "invalid_batch_size")
+    expect_tool_error("batch_tool/bool_route_timeout_rejected_downstream",
+                      lambda: laya_route_batch(BATCH_REQUESTS, hooks_timeout=False, router=BatchRouter()),
+                      "invalid_hooks_timeout")
 
 
 def test_batch_route():
@@ -1829,6 +1970,26 @@ def test_controls_signature_and_schema():
         ok("schema/%s_required_unchanged" % name,
            required == (["preset", "state"] if name == "laya_preset" else ["state", "questions"]),
            repr(required))
+
+    from laya.mcp import server as server_mod
+
+    model_schemas = []
+    for name in ("laya_predict", "laya_shortlist", "laya_decide", "laya_route"):
+        parameter = inspect.signature(getattr(server_mod, name + "_tool")).parameters["model"]
+        ok("signature/%s_model_default_none" % name, parameter.default is None, repr(parameter.default))
+        tool = by_name[name]
+        schema = tool.input_schema if hasattr(tool, "input_schema") else tool.inputSchema
+        model_schema = schema.get("properties", {}).get("model", {})
+        ok("schema/%s_model_nullable" % name,
+           {"type": "null"} in (model_schema.get("anyOf") or []), repr(model_schema))
+        model_schemas.append(model_schema)
+    ok("schema/model_specs_consistent", all(model_schema == model_schemas[0] for model_schema in model_schemas),
+       repr(model_schemas))
+    for name in ("laya_predict", "laya_shortlist"):
+        description = by_name[name].description.lower()
+        ok("schema/%s_model_doc_matches_nullable_default" % name,
+           all(option in description for option in ("null (default)", "'auto'", "omitted")),
+           description)
 
 
 def test_lang_guess_control():
@@ -2761,6 +2922,7 @@ test_option_order_forwarding()
 test_shortlist()
 test_batch_validation()
 test_batch_predict()
+test_batch_tool_control_forwarding()
 test_batch_route()
 test_decide()
 test_shortlist_lang_parity()

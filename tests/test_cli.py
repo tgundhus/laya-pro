@@ -408,6 +408,68 @@ check("sort: batch routing is untouched by a forward-pass knob",
       code == 0 and stub.predict_batch_calls == [] and len(stub.route_batch_calls) == 1,
       "predict=%r route=%r" % (stub.predict_batch_calls, len(stub.route_batch_calls)))
 
+# #1111: the two denominators split when routing groups. Six lines that route to two checkpoints
+# reach `Agent.predict_batch` as groups of 4 and 2 with the same `--batch-size` forwarded to each,
+# so the reorder switches per group while the note used to read the file -- a batch wider than a
+# group reordered nothing, silently. This router splits the way core does and reports the per-group
+# outcome the way core now does, so the post-run note is checkable without checkpoints.
+class GroupingRouter:
+    """One agent-sized call per checkpoint group, plus core's sort report."""
+
+    def __init__(self, sizes):
+        self.sizes = sizes
+        self.calls = []
+
+    def route_batch(self, requests):
+        return [StubDecision() for _ in requests]
+
+    def predict_batch(self, requests, batch_size=None, sort_by_length=False, diagnostics=None):
+        report = {"groups": 0, "reordered": 0, "smallest": None, "largest": None}
+        start = 0
+        for size in self.sizes:
+            n = len(requests[start:start + size])
+            self.calls.append((n, batch_size, sort_by_length))
+            reorders = bool(sort_by_length and batch_size and batch_size > 1 and batch_size < n)
+            report["groups"] += 1
+            report["reordered"] += int(reorders)
+            report["smallest"] = n if report["smallest"] is None else min(report["smallest"], n)
+            report["largest"] = n if report["largest"] is None else max(report["largest"], n)
+            start += size
+        if diagnostics is not None:
+            diagnostics["sort_by_length"] = report
+        return [{"model": "laya-rl", "answers": {"difficulty": {"score": float(i)}}, "usage": {}}
+                for i in range(len(requests))]
+
+
+six = os.path.join(tmp, "six.txt")
+with open(six, "w", encoding="utf-8") as handle:
+    handle.write("one\ntwo\nthree\nfour\nfive\nsix\n")
+
+code, out, err, stub = run_batch_cli(["--batch", six, "--predict", "--batch-size", "5",
+                                      "--sort-by-length"], router=GroupingRouter([4, 2]))
+check("sort: a split batch that reorders nothing is not silent any more",
+      code == 0 and stub.calls == [(4, 5, True), (2, 5, True)]
+      and "2 of 2 batches (2-4 states)" in err,
+      "code %r calls %r err %r" % (code, stub.calls, err))
+check("sort: the per-group note does not quote the file as the denominator",
+      "1 < N < 6" not in err, err)
+
+code, out, err, stub = run_batch_cli(["--batch", six, "--predict", "--batch-size", "3",
+                                      "--sort-by-length"], router=GroupingRouter([4, 2]))
+check("sort: a batch between the group sizes says which half missed out",
+      code == 0 and "1 of 2 batches (2-4 states)" in err, "err %r" % err)
+
+code, out, err, stub = run_batch_cli(["--batch", six, "--predict", "--batch-size", "2",
+                                      "--sort-by-length"], router=GroupingRouter([3, 3]))
+check("sort: a batch below every group reorders everywhere and stays quiet",
+      code == 0 and err == "" and stub.calls == [(3, 2, True), (3, 2, True)],
+      "code %r calls %r err %r" % (code, stub.calls, err))
+
+code, out, err, stub = run_batch_cli(["--batch", six, "--predict", "--batch-size", "6",
+                                      "--sort-by-length"], router=GroupingRouter([6]))
+check("sort: one group keeps the file-wide wording, sized by the group core saw",
+      code == 0 and "1 < N < 6" in err, "err %r" % err)
+
 # A flag nobody can find is a flag nobody uses. README is where `laya --batch` and `/predict/batch`
 # are taught, so the same pages that teach `--batch-size` have to teach the grouping that makes a
 # bounded pass cheap -- including the condition it needs, since a run without it changes nothing.
@@ -471,6 +533,38 @@ code, out, err, stub = run_cli(["hello", "--questions", KEYED_PATH], router=Ques
 check("questions: declared state_key used", stub.states[0] == {"body": "hello"}, str(stub.states[0]))
 check("questions: questions unwrapped",
       sorted(stub.questions) == ["spam"], str(sorted(stub.questions or {})))
+
+# A bare mapping containing a question id named "questions" must not be mistaken for a wrapper
+# object: both single-question and multi-question bare mappings keep the question id intact.
+bare_questions_only = {"questions": {"type": "choice", "instructions": "Any questions?",
+                                     "options": ["y", "n"]}}
+bare_questions_path = write_json("bare_questions.json", bare_questions_only)
+code, out, err, stub = run_cli(["hello", "--questions", bare_questions_path],
+                               router=QuestionRecorder())
+check("questions: bare mapping with 'questions' id preserved",
+      stub.questions == bare_questions_only, str(stub.questions))
+check("questions: bare mapping with 'questions' id uses default state_key",
+      stub.states[0] == {"request": "hello"}, str(stub.states[0]))
+
+bare_multi = {
+    "questions": {"type": "choice", "instructions": "Any questions?", "options": ["y", "n"]},
+    "urgency": {"type": "score", "instructions": "How urgent?"},
+}
+bare_multi_path = write_json("bare_multi.json", bare_multi)
+code, out, err, stub = run_cli(["hello", "--questions", bare_multi_path],
+                               router=QuestionRecorder())
+check("questions: multi-question bare mapping with 'questions' id retains all keys",
+      stub.questions == bare_multi, str(stub.questions))
+
+# A wrapper with no state_key unwraps its inner questions.
+wrapped_no_key = {"questions": {"spam": {"type": "noul", "instructions": "Is spam?"}}}
+wrapped_no_key_path = write_json("wrapped_no_key.json", wrapped_no_key)
+code, out, err, stub = run_cli(["hello", "--questions", wrapped_no_key_path],
+                               router=QuestionRecorder())
+check("questions: wrapper without state_key unwraps",
+      sorted(stub.questions) == ["spam"], str(sorted(stub.questions or {})))
+check("questions: wrapper without state_key uses default state_key",
+      stub.states[0] == {"request": "hello"}, str(stub.states[0]))
 
 # The CLI validates the file's shape and defers question semantics to core, so a question set is
 # handed over unchanged rather than normalised twice.

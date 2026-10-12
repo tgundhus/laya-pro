@@ -26,6 +26,7 @@ instead of changing it (it needs an answering mode: routing has no confidence to
 """
 
 import argparse
+import inspect
 import json
 import sys
 
@@ -165,7 +166,15 @@ def load_questions(path):
         raise ValueError("--questions file must be a JSON object of question id -> definition")
     state_key = "request"
     questions = raw
-    if "questions" in raw:
+    wrapper_keys = {"questions", "state_key"}
+    is_wrapped = False
+    if set(raw.keys()) <= wrapper_keys and "questions" in raw:
+        inner = raw["questions"]
+        if "state_key" in raw or not isinstance(inner, dict) or not inner:
+            is_wrapped = True
+        elif all(isinstance(v, dict) for v in inner.values()):
+            is_wrapped = True
+    if is_wrapped:
         if not isinstance(raw["questions"], dict):
             raise ValueError("the 'questions' field of the --questions file must be an object")
         questions = raw["questions"]
@@ -306,6 +315,49 @@ def read_batch_lines(source):
     return [line.strip() for line in lines if line.strip()]
 
 
+def _takes_predict_diagnostics(router) -> bool:
+    """Whether `router`'s predict_batch takes the per-group sort report of #1111.
+
+    The same signature check the evals runner makes for `sort_by_length`, but exact-name only:
+    the report is a contract with core's own Router, and a `**kwargs` forwarder would swallow
+    the dict while staying as blind as any other foreign router. Routers without the parameter
+    keep the pre-run note, whose file-wide wording is exact for the single group they predict.
+    """
+    fn = getattr(router, "predict_batch", None)
+    if fn is None:
+        return False
+    try:
+        parameters = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
+    return "diagnostics" in parameters
+
+
+def _note_sort_report(report, total):
+    """Say what actually reordered, once core has reported it per checkpoint group."""
+    stats = report.get("sort_by_length") or {}
+    groups = stats.get("groups") or 0
+    if not groups or stats.get("reordered", 0) >= groups:
+        return
+    smallest, largest = stats.get("smallest"), stats.get("largest")
+    if groups == 1:
+        # One group saw every line, so the pre-run wording is exact there; keep its copy, with
+        # the group's own size rather than the file's, in case a cache hit shrank the batch.
+        print("note: --sort-by-length only takes effect with --batch-size N where "
+              "1 < N < %d; the states still go in one forward pass" % smallest,
+              file=sys.stderr)
+        return
+    span = "%d" % smallest if smallest == largest else "%d-%d" % (smallest, largest)
+    # The post-run counterpart of the pre-run note: instead of guessing from the file before
+    # the run, name the groups that could not reorder and the size that would have reached them.
+    print("note: --sort-by-length groups within each checkpoint batch, not across the file: "
+          "%d of %d batches (%s states) could not reorder; a batch reorders only when "
+          "--batch-size is smaller than its state count, and the smallest batch holds %d of "
+          "the file's %d lines"
+          % (groups - stats["reordered"], groups, span, smallest, total),
+          file=sys.stderr)
+
+
 def run_batch(lines, args, router=None):
     """Route or predict a whole file in one call, so states share checkpoint loads and
     forward passes; returns 0 on success, 2 on a handled error."""
@@ -322,19 +374,30 @@ def run_batch(lines, args, router=None):
             requests = [{"state": {key: line}, "questions": questions, **overrides}
                         for line in lines]
             kwargs = {"batch_size": args.batch_size, **abstention_override(args)}
+            sort_report = None
             if args.sort_by_length:
                 # Sent only when asked for, as Router.predict_batch itself forwards it: a stub or
                 # an attached agent that predates the knob keeps working for every run that does
                 # not request it.
                 kwargs["sort_by_length"] = True
                 chunk = args.batch_size if args.batch_size and args.batch_size > 0 else len(lines)
-                if not 1 < chunk < len(lines):
+                if _takes_predict_diagnostics(router):
+                    # The reorder switches per checkpoint/question group inside core, so the
+                    # file's line count is only an upper bound on the denominators that decide
+                    # it (#1111): a file that routes to several checkpoints can reorder nothing
+                    # while `1 < chunk < len(lines)` holds. Ask core for the per-group outcome
+                    # and note after the run, when the groups are known.
+                    sort_report = {}
+                    kwargs["diagnostics"] = sort_report
+                elif not 1 < chunk < len(lines):
                     # Core documents this as a no-op rather than an error, so the shell says why
                     # the run was not reordered instead of printing a silent same-speed result.
                     print("note: --sort-by-length only takes effect with --batch-size N where "
                           "1 < N < %d; the states still go in one forward pass" % len(lines),
                           file=sys.stderr)
             results = router.predict_batch(requests, **kwargs)
+            if sort_report is not None:
+                _note_sort_report(sort_report, len(lines))
             for line, result in zip(lines, results):
                 if args.json:
                     print(json.dumps(result, ensure_ascii=False, default=str))
