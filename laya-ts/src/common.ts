@@ -274,7 +274,7 @@ export function checkMinConfidenceMap(m: unknown): MinConfidenceMap {
   const out: Record<string, number> = {};
   for (const [key, val] of Object.entries(m as Record<string, unknown>)) {
     if (key !== "default" && !BUCKET_KEY.test(key)) {
-      throw new Error(`min_confidence map keys must be strings like 'choice:3-5', got ${pyRepr(key)}`);
+      throw new Error(`min_confidence map keys must be a bucket like 'choice:3-5' or 'default', got ${pyRepr(key)}`);
     }
     if (typeof val === "boolean" || typeof val !== "number" || !Number.isFinite(val) || val < 0.0 || val > 1.0) {
       throw new Error(`min_confidence must be a float in [0.0, 1.0], got ${pyRepr(val)}`);
@@ -329,20 +329,39 @@ export function resolveMinConfidence(
 }
 
 /**
+ * The number the abstention gate compares against the threshold, or null if there is none.
+ *
+ * Matches Python: fall back whenever answer_confidence is unusable, and compare any
+ * finite number, including values outside [0, 1]. null means neither field is usable.
+ */
+function gateConfidence(answer: Record<string, unknown>): number | null {
+  const primary = answer.answer_confidence;
+  if (typeof primary === "number" && Number.isFinite(primary)) return primary;
+  const fallback = answer.confidence;
+  if (typeof fallback === "number" && Number.isFinite(fallback)) return fallback;
+  return null;
+}
+
+/**
  * Opt-in abstention marker (#361, #394): flag answers whose confidence falls below `min_confidence`.
  *
  * Reads `answer_confidence` (the calibrated max(p) confidence, invariant to label count k),
- * falling back to `confidence` if `answer_confidence` is absent.
- * The raw answer and confidence stay intact; `low_confidence: true` is added.
+ * falling back to `confidence` whenever `answer_confidence` is not a usable number -- see
+ * `gateConfidence`, which mirrors Python's `_gate_confidence`.
+ * The raw answer and confidence stay intact; `low_confidence: true` is added when the answer
+ * falls below the threshold, and removed if a previously-flagged answer now clears it (e.g.
+ * when a result dict is reused or re-evaluated with a different threshold).
  *
  * Supports both a scalar number in [0.0, 1.0] and a per-bucket mapping of thresholds.
+ *
+ * A 0.0 threshold also clears stale markers on valid confidence values; negative finite
+ * values still fall below it, matching Python.
  */
 export function flagLowConfidence(
   results: Array<Record<string, unknown>> | Record<string, unknown>,
   minConfidence: MinConfidence,
 ): void {
   const isMap = typeof minConfidence === "object" && minConfidence !== null;
-  if (!isMap && minConfidence === 0.0) return;
   const list = Array.isArray(results) ? results : [results];
   for (const res of list) {
     const answers = res && typeof res === "object" ? (res as Record<string, unknown>).answers : null;
@@ -350,15 +369,16 @@ export function flagLowConfidence(
     for (const a of Object.values(answers as Record<string, unknown>)) {
       if (!a || typeof a !== "object") continue;
       const ansObj = a as Record<string, unknown>;
-      let conf = ansObj.answer_confidence;
-      if (conf === undefined || conf === null) {
-        conf = ansObj.confidence;
+      const conf = gateConfidence(ansObj);
+      if (conf === null) {
+        delete ansObj.low_confidence;
+        continue;
       }
-      if (typeof conf === "number" && !Number.isNaN(conf)) {
-        const thr = isMap ? resolveMinConfidence(ansObj, minConfidence) : minConfidence;
-        if (conf < thr) {
-          ansObj.low_confidence = true;
-        }
+      const thr = isMap ? resolveMinConfidence(ansObj, minConfidence) : minConfidence;
+      if (conf < thr) {
+        ansObj.low_confidence = true;
+      } else {
+        delete ansObj.low_confidence;
       }
     }
   }

@@ -107,7 +107,8 @@ test("the packed module installs and works in an external ESM TypeScript project
   await writeFile(
     join(consumerDir, "runtime.mjs"),
     `import assert from "node:assert/strict";
-import { Agent, VERSION } from "laya-ts";
+import { Agent, Router, VERSION, predictTournament, DEFAULT_TOURNAMENT_GROUP, cached, cachedEmbedFn,
+  DEFAULT_SHORTLIST_MAXSIZE } from "laya-ts";
 
 let encoderCalls = 0;
 let headCalls = 0;
@@ -136,6 +137,36 @@ assert.equal(result.answers.intent.probabilities.refund > 0.5, true);
 assert.equal(result.usage.output_tokens, 0);
 assert.equal(encoderCalls, 1);
 assert.equal(headCalls, 1);
+assert.equal(DEFAULT_TOURNAMENT_GROUP, 16);
+const tournament = await predictTournament(agent, "charged twice", {
+  intent: { type: "choice", instructions: "Pick a route", criteria: ["refund", "other"] },
+});
+assert.equal(tournament.answers.intent.choice, "refund");
+assert.deepEqual(tournament.tournament.intent, { labels: ["refund", "other"], n: 2, rounds: 0 });
+assert.equal(cached, cachedEmbedFn);
+assert.equal(DEFAULT_SHORTLIST_MAXSIZE, 4096);
+let embeddedRows = 0;
+const embed = cached(texts => { embeddedRows += texts.length; return texts.map(text => [text.length, 1]); }, 2);
+assert.deepEqual(await embed(["refund", "other", "refund"]), [[6, 1], [5, 1], [6, 1]]);
+await embed(["refund"]);
+assert.equal(embeddedRows, 2);
+assert.deepEqual(embed.cacheInfo(), { size: 2, maxsize: 2, hits: 1, misses: 3 });
+embed.cache_clear();
+assert.equal(embed.cache_info().size, 0);
+const checkpoints = [];
+const router = new Router({ autoTaskDetection: true, loader(name) {
+  return { async systemOne(_state, questions) {
+    checkpoints.push(name);
+    return { model: name, usage: {}, answers: Object.fromEntries(Object.entries(questions).map(([qid, q]) =>
+      [qid, { type: "choice", choice: q.criteria[0], confidence: 1 }])) };
+  } };
+} });
+const workflowQuestions = Object.fromEntries(["action", "category", "churn_risk", "needs_human", "urgency"].map(qid =>
+  [qid, { type: "choice", instructions: "Pick a route", criteria: qid === "category"
+    ? Array.from({ length: 20 }, (_, i) => String(i)) : ["only"] }]));
+const workflowResult = await predictTournament(router, "I need help", workflowQuestions, 4);
+assert.deepEqual(checkpoints, ["typed-decisions", "typed-decisions", "typed-decisions"]);
+assert.equal(workflowResult.routing.workflow, "customer_service");
 `,
   );
   await run(process.execPath, ["runtime.mjs"], consumerDir);
@@ -145,9 +176,15 @@ assert.equal(headCalls, 1);
     `import {
   Agent,
   VERSION,
+  predictTournament,
+  DEFAULT_TOURNAMENT_GROUP,
+  cached,
+  type CachedEmbedFn,
+  type CacheInfo,
   type QuestionDef,
   type SessionProvider,
   type SystemOneResult,
+  type TournamentMeta,
 } from "laya-ts";
 
 const provider: SessionProvider = {
@@ -175,6 +212,15 @@ const prediction: Promise<SystemOneResult> = new Agent({ provider }).predict(
 
 void VERSION;
 void prediction;
+const tournament: Promise<SystemOneResult & { tournament: Record<string, TournamentMeta> }> =
+  predictTournament(new Agent({ provider }), "charged twice", questions, DEFAULT_TOURNAMENT_GROUP);
+void tournament;
+const embed: CachedEmbedFn = cached(texts => texts.map(text => [text.length]));
+const info: CacheInfo = embed.cacheInfo();
+const vectors: Promise<number[][]> = embed(["refund"]);
+embed.cacheClear();
+void info;
+void vectors;
 `,
   );
   await writeFile(

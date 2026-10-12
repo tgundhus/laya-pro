@@ -3,6 +3,8 @@ import type { Batch } from "./providers.js";
 import type { QuestionDef, SystemOneResult } from "./agent.js";
 
 export const DEFAULT_SHORTLIST_K = 20;
+export const DEFAULT_TOURNAMENT_GROUP = 16;
+export const DEFAULT_SHORTLIST_MAXSIZE = 4096;
 
 export type EmbedFn = (texts: string[]) => Promise<number[][]> | number[][];
 
@@ -12,6 +14,27 @@ export interface ShortlistMeta {
   k: number;
   n: number;
   passthrough: boolean;
+}
+
+export interface TournamentMeta {
+  labels: string[];
+  n: number;
+  rounds: number;
+}
+
+export interface CacheInfo {
+  size: number;
+  maxsize: number;
+  hits: number;
+  misses: number;
+}
+
+export interface CachedEmbedFn {
+  (texts: string[]): Promise<number[][]>;
+  cacheInfo(): CacheInfo;
+  cache_info(): CacheInfo;
+  cacheClear(): void;
+  cache_clear(): void;
 }
 
 function checkK(k: unknown): number {
@@ -177,6 +200,138 @@ export async function predictShortlist(
   return { ...(result as SystemOneResult), shortlist: meta };
 }
 
+/**
+ * Reduce large choices through balanced elimination rounds, then predict all questions.
+ * Each round batches every group's question in one call. Metadata lists the finalists;
+ * probabilities, confidence, usage and other result fields come from the final call only.
+ */
+export async function predictTournament(
+  agent: unknown,
+  state: unknown,
+  questions: Record<string, QuestionDef>,
+  groupSize: number = DEFAULT_TOURNAMENT_GROUP,
+  predictKwargs: Record<string, unknown> = {},
+): Promise<SystemOneResult & { tournament: Record<string, TournamentMeta> }> {
+  if (typeof questions !== "object" || questions === null || Array.isArray(questions) ||
+      (Object.getPrototypeOf(questions) !== null && Object.getPrototypeOf(questions) !== Object.prototype)) {
+    throw new TypeError("questions must be a dict of question id -> definition");
+  }
+  if (!Number.isSafeInteger(groupSize) || groupSize < 2) {
+    throw new Error(`groupSize must be a safe integer >= 2, got ${JSON.stringify(groupSize)}`);
+  }
+  const meta = new Map<string, TournamentMeta>();
+  for (const [qid, qdef] of Object.entries(questions)) {
+    if (typeof qdef !== "object" || qdef === null || Array.isArray(qdef) || qdef["type"] !== "choice") continue;
+    if (!("criteria" in qdef)) {
+      throw new Error(`question ${JSON.stringify(qid)} is a choice but has no criteria`);
+    }
+    const criteria = qdef["criteria"];
+    if (Array.isArray(criteria)) {
+      for (const label of criteria) {
+        if (label === null || label === undefined || typeof label === "object") {
+          throw new Error(`question ${JSON.stringify(qid)}: choice labels must not be null, lists or dicts`);
+        }
+      }
+    }
+    const labels = criteriaItems(criteria).map(([label]) => label);
+    meta.set(qid, { labels, n: labels.length, rounds: 0 });
+  }
+  const a = agent as Record<string, unknown>;
+  const fn = a?.["predict"] ?? a?.["systemOne"] ?? a?.["system_one"];
+  if (typeof fn !== "function") throw new TypeError("agent must provide predict or system_one");
+  let kwargs = predictKwargs;
+  let originalRoute: Record<string, unknown> | null = null;
+  if (typeof a?.["route"] === "function" && [...meta.values()].some(entry => entry.labels.length > groupSize)) {
+    // Generated group IDs lose workflow routing. Resolve the original schema once;
+    // prediction still runs through the router so its per-round hooks remain active.
+    const routeOptions = Object.fromEntries(
+      ["model", "task", "lang", "langGuess", "lang_guess", "hooks", "hooksRaise"]
+        .filter(key => Object.hasOwn(predictKwargs ?? {}, key)).map(key => [key, predictKwargs[key]]),
+    );
+    const route = await (a["route"] as (...args: unknown[]) => unknown).call(agent, state, questions, routeOptions);
+    if (typeof route !== "object" || route === null || Array.isArray(route) ||
+        typeof (route as Record<string, unknown>)["model"] !== "string") {
+      throw new TypeError("router.route must return a decision with a model name");
+    }
+    originalRoute = { ...(route as Record<string, unknown>) };
+    kwargs = { ...predictKwargs, model: originalRoute["model"] };
+    const detection = originalRoute["detection"] as Record<string, unknown> | null;
+    const detectedLang = detection?.["language"];
+    if (kwargs["lang"] == null && typeof detectedLang === "string" && detectedLang !== "en") {
+      kwargs["lang"] = detectedLang;
+    }
+  }
+  const extra = Object.keys(kwargs ?? {}).length ? [kwargs] : [];
+  const predict = async (current: Record<string, QuestionDef>): Promise<SystemOneResult> => {
+    const result = await (fn as (...args: unknown[]) => unknown).call(agent, state, current, ...extra);
+    if (typeof result !== "object" || result === null || Array.isArray(result)) {
+      throw new TypeError("predict/system_one must return a dict");
+    }
+    return result as SystemOneResult;
+  };
+  const warned = new Set<string>();
+  const cut = (qid: string, labels: string[]): QuestionDef => {
+    const original = questions[qid];
+    const narrowed: QuestionDef = { ...original, criteria: subsetCriteria(original["criteria"], labels) };
+    if (Object.hasOwn(narrowed, "option_order")) {
+      delete narrowed["option_order"];
+      if (!warned.has(qid)) {
+        warned.add(qid);
+        console.warn(
+          `laya.shortlist: question ${JSON.stringify(qid)}: 'option_order' was dropped because the label set was narrowed to ${labels.length}; the order no longer fits the kept options.`,
+        );
+      }
+    }
+    return narrowed;
+  };
+
+  while (true) {
+    const groups: { qid: string; labels: string[] }[] = [];
+    for (const [qid, entry] of meta) {
+      const n = entry.labels.length;
+      const parts = Math.ceil(n / groupSize);
+      if (parts <= 1) continue;
+      for (let i = 0; i < parts; i++) {
+        groups.push({ qid, labels: entry.labels.slice(Math.floor(i * n / parts), Math.floor((i + 1) * n / parts)) });
+      }
+    }
+    if (groups.length === 0) break;
+    const roundQuestions = Object.fromEntries(groups.map(({ qid, labels }, i) => [String(i), cut(qid, labels)]));
+    const result = await predict(roundQuestions);
+    const answers = result["answers"];
+    if (typeof answers !== "object" || answers === null || Array.isArray(answers)) {
+      throw new TypeError("tournament round must return an answers dict");
+    }
+    const winners = new Map<string, string[]>();
+    for (const [i, { qid, labels }] of groups.entries()) {
+      const answer = Object.hasOwn(answers, String(i)) ? (answers as Record<string, unknown>)[String(i)] : undefined;
+      const choice = typeof answer === "object" && answer !== null && !Array.isArray(answer) && Object.hasOwn(answer, "choice")
+        ? (answer as Record<string, unknown>)["choice"] : undefined;
+      if (typeof choice !== "string" || !labels.includes(choice)) {
+        throw new Error(`tournament group ${i} for question ${JSON.stringify(qid)} must return a choice from its criteria`);
+      }
+      const kept = winners.get(qid) ?? [];
+      kept.push(choice);
+      winners.set(qid, kept);
+    }
+    for (const [qid, labels] of winners) {
+      const entry = meta.get(qid)!;
+      entry.labels = labels;
+      entry.rounds++;
+    }
+  }
+
+  const finalQuestions = Object.fromEntries(Object.entries(questions).map(([qid, qdef]) => {
+    const entry = meta.get(qid);
+    return [qid, entry?.rounds ? cut(qid, entry.labels) : qdef];
+  }));
+  const result = await predict(finalQuestions);
+  const routing = (result as unknown as Record<string, unknown>)["routing"];
+  const sameModel = originalRoute !== null && typeof routing === "object" && routing !== null &&
+    (routing as Record<string, unknown>)["model"] === originalRoute["model"];
+  return { ...result, ...(sameModel ? { routing: originalRoute } : {}), tournament: Object.fromEntries(meta) };
+}
+
 /** Mean-pool the agent's provider encoder. Throws honestly without encoder access. */
 export function embedFnFromAgent(agent: unknown, maxLength = 512, batchSize = 32): EmbedFn {
   if (!Number.isInteger(maxLength) || (maxLength as number) < 1) {
@@ -225,3 +380,138 @@ export function embedFnFromAgent(agent: unknown, maxLength = 512, batchSize = 32
     return out;
   };
 }
+
+/**
+ * Wrap `embedFn` with an LRU cache keyed by text.
+ *
+ * Shortlisting embeds the query plus every option on every call. When the option
+ * set is fixed -- a label list, an intent taxonomy -- those rows never change
+ * between requests and are re-embedded every time. Wrapping the embedder once
+ * leaves the first call unchanged and reduces each repeat to embedding the new
+ * query alone.
+ *
+ * A cold cache costs the same number of embedder calls as the unwrapped function:
+ * the misses are deduplicated and embedded in one call. Nothing is cached when
+ * the embedder throws or returns a bad shape, so a transient failure cannot
+ * poison the cache.
+ *
+ * @param embedFn The underlying embedding function
+ * @param maxsize Maximum number of distinct text rows to cache (default: 4096)
+ */
+export function cachedEmbedFn(embedFn: EmbedFn, maxsize: number = DEFAULT_SHORTLIST_MAXSIZE): CachedEmbedFn {
+  if (typeof embedFn !== "function") {
+    throw new TypeError("embed_fn must be callable");
+  }
+  if (typeof maxsize !== "number" || !Number.isInteger(maxsize) || maxsize < 1) {
+    throw new Error(`maxsize must be a positive integer, got ${JSON.stringify(maxsize)}`);
+  }
+
+  const rowsByText = new Map<string, number[]>();
+  let hitsTotal = 0;
+  let missesTotal = 0;
+  let generation = 0;
+
+  const fn = async (texts: string[]): Promise<number[][]> => {
+    const keys = (texts ?? []).map((t) => (t === null || t === undefined ? "" : String(t)));
+    if (keys.length === 0) return [];
+
+    const found = new Map<string, number[]>();
+    let hitsThisCall = 0;
+
+    for (const key of keys) {
+      const row = rowsByText.get(key);
+      if (row !== undefined) {
+        found.set(key, row);
+        hitsThisCall++;
+      }
+    }
+
+    hitsTotal += hitsThisCall;
+    missesTotal += keys.length - hitsThisCall;
+
+    const missing: string[] = [];
+    const seenMissing = new Set<string>();
+    for (const key of keys) {
+      if (!found.has(key) && !seenMissing.has(key)) {
+        seenMissing.add(key);
+        missing.push(key);
+      }
+    }
+
+    const genAtStart = generation;
+    const dimAtStart = found.values().next().value?.length;
+
+    if (missing.length > 0) {
+      const fresh = await embeddings(embedFn, missing);
+
+      // Validate dimensions of all returned rows before caching any
+      // A cleared cache may already hold rows from a replacement model. Validate the
+      // abandoned generation against its own rows, without touching the new cache.
+      const heldDim = generation === genAtStart ? rowsByText.values().next().value?.length : dimAtStart;
+      const expectedDim = heldDim ?? (fresh.length > 0 ? fresh[0]?.length : undefined);
+
+      for (let i = 0; i < fresh.length; i++) {
+        const rowDim = fresh[i]?.length ?? 0;
+        if (expectedDim !== undefined && rowDim !== expectedDim) {
+          if (heldDim !== undefined) {
+            throw new Error(
+              `the embedder returned dim ${rowDim}, but the cache holds dim ${heldDim}; call cacheClear() if the model behind it changed`,
+            );
+          } else {
+            throw new Error(
+              `the embedder returned inconsistent embedding dimensions (${expectedDim} vs ${rowDim})`,
+            );
+          }
+        }
+      }
+
+      for (let i = 0; i < missing.length; i++) {
+        found.set(missing[i], fresh[i]);
+      }
+
+      // If cacheClear() ran while embeddings() was pending, do not restore entries into the cleared cache
+      if (generation !== genAtStart) {
+        return keys.map((key) => [...(found.get(key) ?? [])]);
+      }
+    }
+
+    // Apply recency updates and evictions in input key order
+    for (const key of keys) {
+      const row = found.get(key);
+      if (row !== undefined) {
+        rowsByText.delete(key);
+        rowsByText.set(key, row);
+        while (rowsByText.size > maxsize) {
+          const victim = rowsByText.keys().next().value!;
+          rowsByText.delete(victim);
+        }
+      }
+    }
+
+    return keys.map((key) => [...(found.get(key) ?? [])]);
+  };
+
+  const cacheInfo = (): CacheInfo => ({
+    size: rowsByText.size,
+    maxsize,
+    hits: hitsTotal,
+    misses: missesTotal,
+  });
+
+  const cacheClear = (): void => {
+    rowsByText.clear();
+    hitsTotal = 0;
+    missesTotal = 0;
+    generation++;
+  };
+
+  const cachedResult = fn as CachedEmbedFn;
+  cachedResult.cacheInfo = cacheInfo;
+  cachedResult.cache_info = cacheInfo;
+  cachedResult.cacheClear = cacheClear;
+  cachedResult.cache_clear = cacheClear;
+
+  return cachedResult;
+}
+
+export const cached = cachedEmbedFn;

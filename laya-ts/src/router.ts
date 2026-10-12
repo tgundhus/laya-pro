@@ -710,6 +710,9 @@ export class Router extends HookRegistry {
       if (!("state" in request)) {
         throw new Error(`request ${i} is missing required key 'state'`);
       }
+      if (request.state === null || request.state === undefined) {
+        throw new TypeError(`request ${i} 'state' must not be None; pass a string, dict, or list`);
+      }
       if (!("questions" in request)) {
         throw new Error(`request ${i} is missing required key 'questions'`);
       }
