@@ -9,6 +9,10 @@ retention, replay across devices and precision modes, and optimizations around i
 The pretrained models remain upstream Laya checkpoints; the fork maintains its own code,
 SDKs, documentation and measurements.
 
+Selected upstream changes are reviewed through Laya 0.4.6. The
+[12 October review](https://tgundhus.github.io/laya-pro/reports/upstream-review-2026-10-12/)
+records the adopted fixes, measured costs and deferred features.
+
 [Documentation](https://tgundhus.github.io/laya-pro/) · [Integration](https://github.com/tgundhus/laya-pro/blob/main/docs/integration.md) ·
 [Benchmarks](https://github.com/tgundhus/laya-pro/blob/main/BENCHMARKS.md) · [Deployment](https://github.com/tgundhus/laya-pro/blob/main/docs/production.md)
 

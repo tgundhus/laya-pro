@@ -4,6 +4,9 @@ The [October 2026 Laya-Pro review](docs/reports/production-review.md) records cu
 smoke measurements, cache before/after results and SDK verification. Historical upstream and
 fork runs below retain their original versions and hardware.
 
+The [12 October upstream review](docs/reports/upstream-review-2026-10-12.md) adds a seeded
+mixed-width calibration comparison and real-checkpoint TypeScript embedding-cache measurements.
+
 Every checkpoint answered **byte-identical questions** in each run (fixed seed). Jev figures are **third-party published, never measured here** — no TypeSafe API access — so sample sizes and prompts differ; treat them as indicative.
 
 | run | what | where |

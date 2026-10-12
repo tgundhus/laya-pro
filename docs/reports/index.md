@@ -20,6 +20,9 @@ SDK and cache fixes, and checks on Windows.
 The [10 October upstream review](upstream-review-2026-10-10.md) records selected changes
 reviewed through Laya 0.4.2, their measured integration costs and the remaining validation limits.
 
+The [12 October upstream review](upstream-review-2026-10-12.md) covers selected changes through
+Laya 0.4.6, mixed-width calibration fixes, TypeScript embedding reuse and tournament integration.
+
 The detailed September reports:
 
 - [Consistency: Jev against Laya](consistency-jev-vs-laya.md): what varies between runs, and
