@@ -103,8 +103,8 @@ routing, so Laya-Pro retains English and supports explicit multilingual configur
 
 Native TypeScript hook deadlines remain deferred. The newer formatting and timer cleanup do
 not prevent an abandoned callback from modifying its shared context. Awaited hooks keep their
-existing contract. Docker and Nix are unavailable on this Windows host; their build and
-runtime checks run in CI. ONNX evaluation revisions identify configuration/tokenizer source,
+existing contract. Docker and Nix are unavailable on this Windows host. Docker build and
+runtime checks run in CI; Nix validation remains unverified. ONNX evaluation revisions identify configuration/tokenizer source,
 not a hash of separately supplied graphs.
 
 Tournament probabilities and gates describe the surviving finalists. Elimination can change
