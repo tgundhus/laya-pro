@@ -843,6 +843,8 @@ def confidence_from_probs(p: np.ndarray, k: int) -> float:
 
     How concentrated the whole distribution is. Useful, but not calibrated: it is not what
     temperature scaling fits and not what the reported ECE measures. See `answer_confidence`.
+    For fewer than two options it returns 1.0, since there is no entropy scale.
+    Abstention gates use `answer_confidence` first; this is only their fallback.
     """
     if k < 2:
         return 1.0

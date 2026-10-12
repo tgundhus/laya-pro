@@ -154,6 +154,30 @@ e = EagerBackend(agent)
 check("eager/max_len is unbounded", e.max_len, None)
 check("eager/warmup is free", e.warmup(), 0.0)
 
+shadow = Doubling(agent)
+shadow.install()
+saved_forward = agent.model.forward
+e.install()
+check_true("eager/shadow forward is removed", untouched(agent.model))
+check_true("eager/stock logits after shadow", torch.equal(agent.model(**b)[0], ref))
+e.install()
+check_true("eager/repeated install keeps stock", torch.equal(agent.model(**b)[0], ref))
+e.uninstall()
+check_true("eager/restores exact prior forward", agent.model.forward is saved_forward)
+check_true("eager/restored backend answers", torch.equal(agent.model(**b)[0], ref * 2))
+e.uninstall()
+check_true("eager/repeated uninstall keeps prior", agent.model.forward is saved_forward)
+shadow.uninstall()
+check_true("eager/underlying backend can uninstall", untouched(agent.model))
+
+legacy = fake_agent()
+Doubling(legacy).install()
+installed = backends.install(legacy, "eager")
+check_true("install/eager clears an unowned legacy replacement", untouched(legacy.model))
+check_true("install/eager runs stock logits", torch.equal(legacy.model(**b)[0], ref))
+installed.uninstall()
+check_true("install/eager restores the legacy replacement", torch.equal(legacy.model(**b)[0], ref * 2))
+
 # ------------------------------------------------------------------ the Agent surface
 import inspect  # noqa: E402
 from laya.agent import Agent, load  # noqa: E402

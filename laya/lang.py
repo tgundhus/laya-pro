@@ -831,7 +831,8 @@ def analyse(state: Union[str, bytes, Mapping, list, None]) -> Dict[str, object]:
 
     Returns `script`, `script_profile`, `language` (best effort, may be None),
     `is_english`, `non_latin_fraction` and `mixed_segment` (the line or field that made a mostly
-    English state non-English, else None).
+    English state non-English, else None). Only the segment scan reports `mixed_segment`;
+    a per-value language verdict can return `is_english=False` with no segment.
 
     String values are what get read. When a state has several of them, one non-English value is
     enough: joining every value into one window let a long English note fill the 4000 characters,

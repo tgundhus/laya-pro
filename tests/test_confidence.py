@@ -132,9 +132,9 @@ sample_res = [{
     }
 }]
 
-# min_confidence=0.0 is a no-op (default behavior untouched)
+# A zero threshold marks no fresh answer.
 flag_low_confidence(sample_res, 0.0)
-check_true("flag/0.0 is no-op", not any("low_confidence" in a for a in sample_res[0]["answers"].values()))
+check_true("flag/0.0 marks no answer", not any("low_confidence" in a for a in sample_res[0]["answers"].values()))
 
 # min_confidence=0.70: q_low (0.45) and q_fallback (0.3) flagged; q_high (0.92) and q_exact (0.70) NOT flagged
 flag_low_confidence(sample_res, 0.70)
@@ -145,6 +145,12 @@ check_true("flag/q_high unflagged", "low_confidence" not in ans["q_high"])
 check_true("flag/q_exact unflagged", "low_confidence" not in ans["q_exact"])
 check("flag/answer_confidence intact", ans["q_low"]["answer_confidence"], 0.45)
 check("flag/raw choice intact", ans["q_high"]["choice"], "a")
+
+reused = copy.deepcopy(sample_res)
+flag_low_confidence(reused, 0.0)
+check_true("flag/zero clears stale markers",
+           all("low_confidence" not in a for a in reused[0]["answers"].values()))
+check("flag/zero preserves raw answers", reused[0]["answers"]["q_low"]["score"], 1)
 
 # --------------------------------------------------------------- the gate's state is reported
 # `low_confidence` is written only when the gate fires, so its absence cannot tell a caller

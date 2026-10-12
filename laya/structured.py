@@ -380,8 +380,10 @@ def decide_batch(runner, states: Sequence[Any], schema: Any = None, *,
     shared-forward-pass path as :meth:`Agent.predict_batch` /
     :meth:`Router.predict_batch`), then each state's answers are projected exactly as
     ``decide`` does. Pass exactly one of ``schema`` or ``questions``; extra keyword
-    arguments (``batch_size=``, ``model=``, ``hooks=``, ...) are forwarded to
-    ``runner.predict_batch``. With ``return_details=True`` each item is a
+    arguments (``batch_size=``, ``hooks=``, ...) are forwarded to
+    ``runner.predict_batch``. Routing pins and token budgets are copied to each request for a
+    Router; an Agent-like runner must accept the corresponding keywords itself (Agents do not
+    accept ``model=``). With ``return_details=True`` each item is a
     ``DecisionResult``. ``min_confidence`` works as in ``decide``: a field whose answer falls
     below it comes back as ``None``, with the answer kept in the details.
 

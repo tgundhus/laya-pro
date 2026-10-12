@@ -8,7 +8,7 @@ import time
 import warnings
 from contextlib import ExitStack, contextmanager, nullcontext
 from contextvars import ContextVar
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -2158,6 +2158,10 @@ def _is_local_checkpoint_arg(model_id_or_path: str) -> bool:
     )
 
 
+if TYPE_CHECKING:  # pragma: no cover - the annotation below is the only use
+    from .onnx_agent import ONNXAgent
+
+
 def load(model_id_or_path: str = "convaiinnovations/laya", device: Optional[str] = None,
          token: Optional[str] = None, subfolder: Optional[str] = None, fast: bool = False,
          compile: bool = False,
@@ -2168,7 +2172,7 @@ def load(model_id_or_path: str = "convaiinnovations/laya", device: Optional[str]
          hooks_timeout: Optional[float] = None,
          calibration: Optional[str] = None, backend: Optional[str] = None,
          onnx_path: Optional[str] = None, compile_warmup: bool = True,
-         compile_cache: bool = False, compile_mode: str = "default") -> Agent:
+         compile_cache: bool = False, compile_mode: str = "default") -> Union[Agent, "ONNXAgent"]:
     """Load a Laya agent.
 
     `subfolder` picks one checkpoint out of a repo that bundles several:

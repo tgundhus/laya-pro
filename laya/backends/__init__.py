@@ -9,7 +9,9 @@
 | `tilelang` | fused TileLang kernels, 16-bit weights, one CUDA graph per bucket   | CUDA, `laya[fast]`, bf16/fp16 |
 | `onnx`     | ONNX Runtime via `laya.onnx_agent.ONNXAgent` (the explicit CPU option, its own class) | `laya[onnx]`, an exported model |
 
-`auto` picks per device: CUDA -> `tilelang` when tilelang imports and the encoder is a
+`auto` keeps the eager forward for `Agent.parallel_options`, whose input masks the
+accelerated backends do not support. Otherwise it picks per device: CUDA -> `tilelang`
+when tilelang imports and the encoder is a
 ModernBERT-family model (the shipped checkpoints), else `compile`; CPU and MPS -> `eager`.
 Every backend honours `agent.dtype`, and one that cannot run falls back to `eager` with one
 `RuntimeWarning`; `strict=True` raises instead. See `laya.backends.base` for the contract and

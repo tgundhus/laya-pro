@@ -1614,6 +1614,8 @@ class Router(HookRegistry):
                 raise TypeError("request %d must be a dict, got %s" % (i, type(request).__name__))
             if "state" not in request:
                 raise ValueError("request %d is missing required key 'state'" % i)
+            if request["state"] is None:
+                raise TypeError("request %d 'state' must not be None; pass a string, dict, or list" % i)
             if "questions" not in request:
                 raise ValueError("request %d is missing required key 'questions'" % i)
 
@@ -1652,6 +1654,7 @@ class Router(HookRegistry):
         on_predict_start=None,
         on_predict_end=None,
         hooks_raise: Optional[bool] = None,
+        diagnostics: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """Route and execute a heterogeneous request batch with minimal model churn.
 
@@ -1694,10 +1697,17 @@ class Router(HookRegistry):
             on_predict_start (PredictHookArg): Plain callable or sequence of callables for start events.
             on_predict_end (PredictHookArg): Plain callable or sequence of callables for end events.
             hooks_raise: Override the Router's ``hooks_raise`` policy for this call.
+            diagnostics: Optional dict receiving ``sort_by_length`` group counts, the
+                number eligible to reorder, and the smallest / largest group size.
+                Counts exclude hook cache hits and reflect the groups that reached an
+                agent after schema and budget splitting. Untouched when sorting is off
+                or every request was answered by a hook.
 
         Returns:
             One normal Router prediction result per request, in the same order as the input.
         """
+        if diagnostics is not None and not isinstance(diagnostics, dict):
+            raise TypeError("diagnostics must be a dict or None")
         mc = check_min_confidence(min_confidence) if min_confidence is not None else None
         decisions = self.route_batch(requests, hooks=hooks, hooks_raise=hooks_raise, hooks_timeout=hooks_timeout)
         if not decisions:
@@ -1717,6 +1727,8 @@ class Router(HookRegistry):
         # `predict` returns as it is.
         results: List[Any] = [None] * len(requests)
         answered = 0
+        sort_report = ({"groups": 0, "reordered": 0, "smallest": None, "largest": None}
+                       if sort_by_length and diagnostics is not None else None)
         # `compose_hooks`, not `list(self.hooks)`: the composition `predict` uses. It merges
         # `set_default_hooks` defaults, then installed hooks, then this call's `hooks`,
         # `on_predict_start` and `on_predict_end`. Reading the instance list alone silently
@@ -1834,6 +1846,19 @@ class Router(HookRegistry):
                             % (len(batch_results), len(items))
                         )
 
+                    if sort_report is not None:
+                        n = len(items)
+                        # Older attached agents may have dropped the keyword. For current
+                        # agents, length sorting applies only across multiple chunks.
+                        reorders = bool("sort_by_length" in batch_kwargs and batch_size
+                                        and 1 < batch_size < n)
+                        sort_report["groups"] += 1
+                        sort_report["reordered"] += int(reorders)
+                        if sort_report["smallest"] is None or n < sort_report["smallest"]:
+                            sort_report["smallest"] = n
+                        if sort_report["largest"] is None or n > sort_report["largest"]:
+                            sort_report["largest"] = n
+
                     for (i, ctx), result in zip(items, batch_results):
                         result["routing"] = dict(decisions[i])
                         ctx.results = [result]
@@ -1876,6 +1901,8 @@ class Router(HookRegistry):
         if answered != len(requests):
             raise RuntimeError("internal error: batch execution did not produce every result")
 
+        if sort_report is not None and sort_report["groups"]:
+            diagnostics["sort_by_length"] = sort_report
         return results
 
     predict_many = predict_batch
