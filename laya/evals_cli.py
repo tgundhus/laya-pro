@@ -185,7 +185,8 @@ def _build_parser() -> argparse.ArgumentParser:
                      help="pin the checkpoint commit: a bare SHA applies to every checkpoint this "
                           "run loads, NAME=SHA pins one (repeatable). Unpinned runs fetch the "
                           "checkpoint's default branch; the report records the commit that answered "
-                          "either way")
+                          "either way. With --onnx this identifies the config/tokenizer source, "
+                          "not the graph's weights")
     run.add_argument("--batch-size", type=int, help="examples per forward pass when questions match")
     run.add_argument("--sort-by-length", action="store_true", dest="sort_by_length",
                      help="with --batch-size N where 1 < N < the run, group similarly sized "
@@ -371,6 +372,8 @@ def _cmd_run(args) -> int:
             if revisions:
                 pins["revisions"] = revisions
             router = laya.Router(device=args.device, preload=False, **pins)
+            if args.model:
+                router.resolve(args.model)
         except ValueError as exc:
             # `Router` already rejects a checkpoint name it does not know -- normalising case,
             # surrounding spaces and aliases on the way -- with the option list in the message.
@@ -401,8 +404,12 @@ def _cmd_run(args) -> int:
     # the run: `preload=False` means no checkpoint is resident before the first row.
     # `loaded_revisions` reports the commit each resident agent came from -- the pin when there is
     # one, the commit the default branch resolved to when there is not, None for a local path.
-    if router is not None:
-        report.config = dict(report.config, revisions=getattr(router, "loaded_revisions", {}))
+    # ONNX names its config/tokenizer source; this does not verify the graph's weight provenance.
+    if args.onnx:
+        revisions = {agent.model_id: getattr(agent, "revision", None)}
+    else:
+        revisions = getattr(router, "loaded_revisions", {})
+    report.config = dict(report.config, revisions=revisions)
 
     if extra:
         _warn_no_value(extra, report)

@@ -2,7 +2,7 @@
 
 Pure Python plus numpy, and free of torch at import time, so the metric math and the dataset
 parsing can be unit tested with no weights. `evaluate` only needs a runner with a
-``predict(state, questions, model=...)`` method, plus -- for ``batch_size`` above 1 -- a
+``predict(state, questions)`` method, plus -- for ``batch_size`` above 1 -- a
 ``predict_batch`` in either of the two shapes the repo ships: the positional one, or the
 per-request-dict one `Router.predict_batch` documents. A fixture runner stands in for a
 checkpoint in tests.
@@ -32,6 +32,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 
 from .confidence import check_min_confidence
+from .consistency import _canonical as _question_signature
 
 #: The shape of the report this module writes, so a consumer can refuse one it cannot read.
 #: ``research/evals/act_head_eval.py`` publishes a report under its own tag off this prefix.
@@ -86,8 +87,9 @@ def evaluate_agreement(runner: Any, reference: Dict, repeat: Dict, *,
                        bootstrap_samples: int = 2000, seed: int = 0) -> Dict[str, Any]:
     """Evaluate a local student's agreement with two saved teacher observations.
 
-    Validate both teacher runs before calling ``runner.predict(state, questions,
-    model=model)`` once per original case. Record the caller's student provenance;
+    Validate both teacher runs before calling ``runner.predict(state, questions)``
+    once per original case. A supplied ``model`` must be accepted by the runner.
+    Record the caller's student provenance;
     use a null revision when it is unknown. Runner errors propagate, and missing or
     invalid answers raise ``EvalError`` instead of dropping decisions. An answer's
     ``abstention='abstained'`` becomes a null student observation.
@@ -848,7 +850,9 @@ def _batch_form(runner: Any) -> Optional[str]:
         # Not introspectable (a C-level or hand-rolled ``__call__``): keep the call this harness
         # made before the shape was checked, rather than silently dropping to single predicts.
         return _BATCH_STATES
-    if any(p.name == "model" or p.kind is p.VAR_KEYWORD for p in params):
+    if any(p.kind is p.VAR_KEYWORD or
+           (p.name == "model" and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY))
+           for p in params):
         return _BATCH_STATES
     positional = [p for p in params if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
     # A bound method, so `positional[0]` is the batch argument itself.
@@ -898,18 +902,39 @@ def _takes_min_confidence(runner: Any, fn_name: str = "predict_batch") -> bool:
     return any(p.name == "min_confidence" or p.kind is p.VAR_KEYWORD for p in params)
 
 
+def _takes_model(runner: Any, fn_name: str = "predict") -> bool:
+    """Whether the entry point accepts a checkpoint as a keyword argument.
+
+    Direct Agents answer from their own checkpoint and take no ``model`` keyword.
+    An unreadable signature keeps the existing call, as ``_batch_form`` does;
+    refusing the keyword then remains a runner error rather than silently losing a pin.
+    """
+    fn = getattr(runner, fn_name, None)
+    if fn is None:
+        return False
+    try:
+        params = inspect.signature(fn).parameters.values()
+    except (TypeError, ValueError):
+        return True
+    return any(p.kind is p.VAR_KEYWORD or
+               (p.name == "model" and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY))
+               for p in params)
+
+
 def evaluate(runner: Any, dataset: Dataset, evaluators: Optional[Sequence[Evaluator]] = None,
              batch_size: Optional[int] = None, on_error: str = "fail",
              config: Optional[Dict[str, Any]] = None, sort_by_length: bool = False,
              min_confidence: Optional[float] = None) -> EvalReport:
     """Run `runner` over `dataset`, aggregating per-answer metrics overall and per slice.
 
-    `runner` needs a ``predict(state, questions, model=...)`` method, and for `batch_size` above 1
+    `runner` needs a ``predict(state, questions)`` method, and for `batch_size` above 1
     a ``predict_batch`` in either shape the repo ships: the positional
     ``predict_batch(states, questions, model=..., batch_size=...)``, or the per-request-dict form
     `Router.predict_batch` takes -- ``predict_batch([{"state": ..., "questions": ...,
     "model": ...}, ...], batch_size=...)``. A runner that offers neither is scored one ``predict``
-    at a time, which is slower but not wrong.
+    at a time, which is slower but not wrong. When ``predict`` takes no ``model`` keyword,
+    unnamed rows use the runner's own checkpoint. A dataset naming an explicit checkpoint
+    is refused before prediction rather than scored under a pin the runner cannot honour.
 
     `sort_by_length` is forwarded to a chunked runner so similarly sized examples share a forward
     pass and pad to a shorter maximum. It reaches the checkpoint's own batching only when the
@@ -972,6 +997,14 @@ def evaluate(runner: Any, dataset: Dataset, evaluators: Optional[Sequence[Evalua
                     "abstention threshold. Either use a Router/ONNXAgent that gates on "
                     "answer_confidence (#361), or drop the threshold -- the report would "
                     "otherwise name a `min_confidence` it never applied." % (min_confidence, target))
+    takes_model = _takes_model(runner)
+    named = next(((i, e) for i, e in enumerate(dataset.examples) if e.model is not None), None)
+    if not takes_model and named is not None:
+        first, offender = named
+        raise EvalError(
+            "evaluate() refused: example %d names model %r, but this runner's predict does not "
+            "accept a `model` argument. Use a runner that forwards the checkpoint, or drop the "
+            "per-example `model`." % (first, offender.model))
     evaluators = list(evaluators) if evaluators is not None else default_evaluators()
     cases: List[Dict[str, Any]] = []
     waits: List[float] = []          # what each request actually waited: its chunk's whole call
@@ -1000,10 +1033,10 @@ def evaluate(runner: Any, dataset: Dataset, evaluators: Optional[Sequence[Evalua
         chunk = [examples[index]]
         if batch_form:
             signature = (examples[index].model,
-                         json.dumps(examples[index].questions, sort_keys=False, default=str))
+                         _question_signature(examples[index].questions))
             while (index + len(chunk) < len(examples) and len(chunk) < batch_size
                    and (examples[index + len(chunk)].model,
-                        json.dumps(examples[index + len(chunk)].questions, sort_keys=False, default=str)) == signature):
+                        _question_signature(examples[index + len(chunk)].questions)) == signature):
                 chunk.append(examples[index + len(chunk)])
         # Why these sit above the call and `waits`/`shares` below: the shape counters answer "what
         # did the harness issue", which is settled the moment the chunk is grouped, while the
@@ -1035,8 +1068,10 @@ def evaluate(runner: Any, dataset: Dataset, evaluators: Optional[Sequence[Evalua
                 # A chunk of one still sees the gate: the pre-flight refusal proved `predict`
                 # accepts it whenever `mc` is set, so nothing here has to re-check the signature.
                 single_kwargs = {"min_confidence": mc} if mc is not None else {}
+                if takes_model:
+                    single_kwargs["model"] = chunk[0].model
                 results = [runner.predict(chunk[0].state, chunk[0].questions,
-                                          model=chunk[0].model, **single_kwargs)]
+                                          **single_kwargs)]
         except Exception as exc:  # noqa: BLE001 -- honoured by on_error
             if on_error == "fail":
                 raise

@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from laya import evals
+from laya import confidence, evals
 
 
 def run_document(run_id, rows, *, teacher=True):
@@ -264,11 +264,61 @@ def test_evaluate_forwards_model_and_isolates_inputs_from_runner_mutation():
     assert report["overall"]["student_teacher_agreement"] == 0.5
 
 
+@pytest.mark.parametrize("positional_only", [False, True])
+def test_evaluate_accepts_local_runner_without_model_keyword_and_refuses_pins(positional_only):
+    class LocalRunner(RecordingRunner):
+        def predict(self, state, questions):
+            return super().predict(state, questions)
+
+    class PositionalRunner(RecordingRunner):
+        def predict(self, state, questions, model=None, /):
+            return super().predict(state, questions, model)
+
+    runner = PositionalRunner() if positional_only else LocalRunner()
+    report = evaluate(runner, documents())
+    assert len(runner.calls) == 2
+    assert report["overall"]["student_teacher_agreement"] == 0.5
+    runner.calls.clear()
+    with pytest.raises(evals.EvalError, match="does not accept.*local-checkpoint"):
+        evaluate(runner, documents(), model="local-checkpoint")
+    assert runner.calls == []
+
+
 def test_evaluate_treats_abstained_argmax_as_uncovered():
     runner = RecordingRunner({"answers": {"q0": {"type": "choice", "choice": "a",
-                                               "abstention": "abstained"}}})
+                                               "abstention": confidence.GATE_ABSTAINED}}})
     overall = evaluate(runner, documents())["overall"]
     assert overall["student_coverage"] == overall["student_teacher_agreement"] == 0.0
+
+
+def test_the_gate_writes_the_marker_and_the_report_reads_it():
+    """Abstention is `laya.confidence`'s vocabulary, so this result comes from that gate.
+
+    The fixture above types the state by hand, which pins nothing about the field a gated runner
+    actually returns: renaming the state, renaming the key, or reading the key as "any marker
+    present" all leave a hand-typed test green while the report counts a declined answer as
+    covered. Here the gate produces all three states and the report has to single out one of them.
+    """
+    answers = {
+        "q0": {"type": "choice", "choice": "a", "answer_confidence": 0.9},   # clears the gate
+        "q1": {"type": "choice", "choice": "a", "answer_confidence": 0.2},   # falls below it
+        "q2": {"type": "choice", "choice": "a"},                             # nothing to compare
+    }
+    confidence.apply_confidence_gate([{"answers": answers}], min_confidence=0.5)
+    assert [answers[qid]["abstention"] for qid in ("q0", "q1", "q2")] == list(confidence.GATE_STATES)
+    declined = [qid for qid in answers if answers[qid]["abstention"] == confidence.GATE_ABSTAINED]
+    assert declined == ["q1"]
+
+    report = evaluate(RecordingRunner({"answers": answers}), documents((("a", "a", "a"),)))
+    overall = report["overall"]
+    assert overall["n_decisions"] == 3
+    assert overall["student_coverage"] == pytest.approx(2 / 3)
+    assert overall["student_teacher_agreement"] == pytest.approx(2 / 3)
+    assert overall["teacher_repeat_agreement"] == pytest.approx(1.0)
+    assert overall["paired_agreement_delta"] == pytest.approx(-1 / 3)
+    assert [(case["qid"], case["student"], case["accepted"]) for case in report["cases"]] == [
+        ("q0", "a", True), ("q1", None, False), ("q2", "a", True),
+    ]
 
 
 @pytest.mark.parametrize("result", [None, "invalid", {}, {"answers": {}},

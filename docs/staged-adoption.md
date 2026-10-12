@@ -85,6 +85,9 @@ checkpoint commit that answered (`config.revisions`), the dataset's bytes and qu
 [Evaluation harness](evals.md) for the run identity and the comparability check between a baseline
 and a candidate.
 
+For ONNX, `config.revisions` identifies the checkpoint source used for configuration and tokenizer
+files. It does not identify or verify the separately supplied graphs; record their hashes too.
+
 [Confidence and abstention](guide.md#confidence-and-abstention),
 [Calibration](limits.md#calibration), and [Known limits](limits.md#known-limits)
 give the existing calibration and confidence context. Keep irreversible or high-cost actions behind
