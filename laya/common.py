@@ -838,7 +838,8 @@ def answer_confidence(p: np.ndarray, k: int) -> float:
     """
     if k < 1:
         return 1.0
-    return float(np.clip(np.max(p[:k]), 0.0, 1.0))
+    val = float(p[:k].max())
+    return 0.0 if val < 0.0 else (1.0 if val > 1.0 else val)
 
 
 def confidence_from_probs(p: np.ndarray, k: int) -> float:
@@ -853,7 +854,8 @@ def confidence_from_probs(p: np.ndarray, k: int) -> float:
         return 1.0
     p = p[:k]
     ent = -(p * np.log(np.clip(p, 1e-12, 1.0))).sum()
-    return float(np.clip(1.0 - ent / math.log(k), 0.0, 1.0))
+    score = float(1.0 - ent / math.log(k))
+    return 0.0 if score < 0.0 else (1.0 if score > 1.0 else score)
 
 
 def temp_bucket(qtype: int, k: int) -> str:
@@ -985,21 +987,25 @@ def collate_items(batch, pad_id: int):
         return None
     n, L = len(items), max(len(it["ids"]) for it in items)
     kmax = max(len(it["markers"]) for it in items)
-    ids = torch.full((n, L), pad_id, dtype=torch.long)
-    att = torch.zeros((n, L), dtype=torch.long)
-    mpos = torch.zeros((n, kmax), dtype=torch.long)
-    mmask = torch.zeros((n, kmax), dtype=torch.bool)
+    ids = np.full((n, L), pad_id, dtype=np.int64)
+    att = np.zeros((n, L), dtype=np.int64)
+    mpos = np.zeros((n, kmax), dtype=np.int64)
+    mmask = np.zeros((n, kmax), dtype=bool)
     has_target = any("target" in it for it in items)
-    target = torch.zeros((n, kmax), dtype=torch.float32) if has_target else None
+    target = np.zeros((n, kmax), dtype=np.float32) if has_target else None
 
     for i, it in enumerate(items):
-        ids[i, : len(it["ids"])] = torch.tensor(it["ids"])
-        att[i, : len(it["ids"])] = 1
-        k = len(it["markers"])
-        mpos[i, :k] = torch.tensor(it["markers"])
+        it_ids = it["ids"]
+        l_ids = len(it_ids)
+        ids[i, :l_ids] = it_ids
+        att[i, :l_ids] = 1
+        markers = it["markers"]
+        k = len(markers)
+        mpos[i, :k] = markers
         mmask[i, :k] = True
         if has_target and "target" in it:
-            if len(it["target"]) > k:
+            t = it["target"]
+            if len(t) > k:
                 # Otherwise this lands as "The expanded size of the tensor (k) must match the
                 # existing size (kmax)" from inside the assignment, which says nothing about the
                 # actual mistake: a target with more entries than the item has options. The limit
@@ -1007,28 +1013,29 @@ def collate_items(batch, pad_id: int):
                 # batch a longer sibling row must not legitimise extra entries (#311).
                 raise ValueError(
                     "collate_items: item %d has %d target entries but only %d marker positions; "
-                    "a target needs one entry per option" % (i, len(it["target"]), k))
-            target[i, : len(it["target"])] = torch.tensor(it["target"], dtype=torch.float32)
+                    "a target needs one entry per option" % (i, len(t), k))
+            target[i, : len(t)] = t
 
     res = {
-        "input_ids": ids,
-        "attention_mask": att,
-        "marker_pos": mpos,
-        "marker_mask": mmask,
-        "qtype": torch.tensor([it["qtype"] for it in items]),
-        "label": torch.tensor([it.get("label", -1) for it in items]),
+        "input_ids": torch.from_numpy(ids),
+        "attention_mask": torch.from_numpy(att),
+        "marker_pos": torch.from_numpy(mpos),
+        "marker_mask": torch.from_numpy(mmask),
+        "qtype": torch.from_numpy(np.array([it["qtype"] for it in items], dtype=np.int64)),
+        "label": torch.from_numpy(np.array([it.get("label", -1) for it in items], dtype=np.int64)),
         "meta": [{k: it[k] for k in it if k not in ("ids", "markers", "target", "layout")} for it in items],
     }
     if target is not None:
-        res["target"] = target
+        res["target"] = torch.from_numpy(target)
     if any("layout" in it for it in items):
         # All or none: a batch that mixes layouts would run half its rows through the wrong masks
         if not all("layout" in it for it in items):
             raise ValueError("collate_items: some items carry a parallel layout and some do not")
-        pos = torch.zeros((n, L), dtype=torch.long)
-        opt = torch.zeros((n, L), dtype=torch.long)
+        pos = np.zeros((n, L), dtype=np.int64)
+        opt = np.zeros((n, L), dtype=np.int64)
         for i, it in enumerate(items):
-            pos[i, : len(it["ids"])] = torch.tensor(it["layout"]["position_ids"])
-            opt[i, : len(it["ids"])] = torch.tensor(it["layout"]["option_ids"])
-        res["position_ids"], res["option_ids"] = pos, opt
+            l_ids = len(it["ids"])
+            pos[i, :l_ids] = it["layout"]["position_ids"]
+            opt[i, :l_ids] = it["layout"]["option_ids"]
+        res["position_ids"], res["option_ids"] = torch.from_numpy(pos), torch.from_numpy(opt)
     return res

@@ -1763,6 +1763,8 @@ class Router(HookRegistry):
                 # checkpoint group again on what the start hooks left, so a rewritten question
                 # set or `ctx.max_len` only applies to its own request.
                 question_groups: List[Dict[str, Any]] = []
+                last_questions = object()
+                last_schema = None
                 for i, ctx in zip(indices, started):
                     if ctx.results is not None:
                         # A cache hit short-circuits inference; keep the `routing` key predict adds.
@@ -1789,7 +1791,12 @@ class Router(HookRegistry):
                             lang_key = detection.get("language")
                     # Order-sensitive at every nesting level (#166): options are positional, so two
                     # equal schemas with different key orders must not share a group.
-                    schema = _question_schema(ctx.questions)
+                    if ctx.questions is last_questions:
+                        schema = last_schema
+                    else:
+                        schema = _question_schema(ctx.questions)
+                        last_questions = ctx.questions
+                        last_schema = schema
                     for group in question_groups:
                         if (group["schema"] == schema and group["overrides"] == overrides
                                 and group["lang"] == lang_key):
