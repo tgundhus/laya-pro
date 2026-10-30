@@ -28,6 +28,16 @@ Use `laya-pro-client` when a JavaScript or TypeScript application talks over HTT
 self-hosted Python `laya-serve`. Use `laya-ts` when inference must run directly
 inside JavaScript through its local ONNX runtime, without a Python server.
 
+The native `laya-ts` package also exposes `Agent.decideBatch`, `Router.decideBatch` and
+the free `decideBatch` helper for one JSON schema over multiple states. They preserve
+input order and support detailed results with per-field `answerConfidence`, plus
+scalar or bucket-map confidence gates. A question's `option_order` changes presentation
+order while answers retain the original choice keys, score levels or noul indices;
+it must be an exact integer permutation. Native Router batch prediction awaits start,
+error and end hooks, ending contexts in reverse start order. Detected English selects
+an English calibration override just like other detected languages. See the
+[native runtime guide](https://github.com/tgundhus/laya-pro/blob/main/laya-ts/README.md).
+
 ## Shared contract
 
 Requests contain `state` and `questions`. Unless configured or supplied for a

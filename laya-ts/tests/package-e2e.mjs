@@ -108,7 +108,7 @@ test("the packed module installs and works in an external ESM TypeScript project
     join(consumerDir, "runtime.mjs"),
     `import assert from "node:assert/strict";
 import { Agent, Router, VERSION, predictTournament, DEFAULT_TOURNAMENT_GROUP, cached, cachedEmbedFn,
-  DEFAULT_SHORTLIST_MAXSIZE } from "laya-ts";
+  DEFAULT_SHORTLIST_MAXSIZE, decideBatch } from "laya-ts";
 
 let encoderCalls = 0;
 let headCalls = 0;
@@ -117,9 +117,9 @@ const provider = {
     encoderCalls += 1;
     return { lastHidden: [[[0]]] };
   },
-  async runHead() {
+  async runHead(_hidden, batch) {
     headCalls += 1;
-    return { logits: [[4, 0]], act: [[3, 0]] };
+    return { logits: batch.qtype.map(() => [4, 0]), act: batch.qtype.map(() => [3, 0]) };
   },
 };
 const agent = new Agent({ provider });
@@ -137,6 +137,19 @@ assert.equal(result.answers.intent.probabilities.refund > 0.5, true);
 assert.equal(result.usage.output_tokens, 0);
 assert.equal(encoderCalls, 1);
 assert.equal(headCalls, 1);
+const schema = { type: "object", properties: { intent: { enum: ["refund", "other"] } } };
+const details = await decideBatch(agent, ["one", "two"], schema, { returnDetails: true, batchSize: 2 });
+assert.deepEqual(details.map(item => item.values.intent), ["refund", "refund"]);
+assert.equal(details[0].answerConfidence.intent, 0.982);
+const routed = await new Router({ loader: () => agent }).decideBatch(["one"], schema);
+assert.deepEqual(routed, [{ intent: "refund" }]);
+const reversed = await agent.predict("one", { intent: {
+  type: "choice", instructions: "Pick", criteria: ["refund", "other"], option_order: [1, 0],
+} });
+assert.equal(reversed.answers.intent.choice, "other");
+await assert.rejects(agent.predict("one", { intent: {
+  type: "choice", instructions: "Pick", criteria: ["refund", "other"], option_order: [1, 0, null],
+} }), /permutation/);
 assert.equal(DEFAULT_TOURNAMENT_GROUP, 16);
 const tournament = await predictTournament(agent, "charged twice", {
   intent: { type: "choice", instructions: "Pick a route", criteria: ["refund", "other"] },
@@ -175,6 +188,10 @@ assert.equal(workflowResult.routing.workflow, "customer_service");
     join(consumerDir, "consumer.ts"),
     `import {
   Agent,
+  Router,
+  decideBatch,
+  type DecideBatchOptions,
+  type DecisionResult,
   VERSION,
   predictTournament,
   DEFAULT_TOURNAMENT_GROUP,
@@ -221,6 +238,12 @@ const vectors: Promise<number[][]> = embed(["refund"]);
 embed.cacheClear();
 void info;
 void vectors;
+const batchOptions: DecideBatchOptions = { batchSize: 2, minConfidence: { "choice:2": 0.8 } };
+const schema = { type: "object", properties: { flag: { type: "boolean" } } };
+const batch: Promise<Record<string, unknown>[]> = new Agent({ provider }).decideBatch(["a"], schema, batchOptions);
+const details: Promise<DecisionResult[]> = decideBatch(new Agent({ provider }), ["a"], schema, { returnDetails: true });
+const routed: Promise<DecisionResult[]> = new Router().decideBatch(["a"], schema, { returnDetails: true });
+void batch; void details; void routed;
 `,
   );
   await writeFile(

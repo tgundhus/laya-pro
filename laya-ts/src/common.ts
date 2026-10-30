@@ -1,6 +1,14 @@
 import type { TokenizerLike } from "./tokenizer.js";
 export type QType = "choice" | "score" | "noul";
-export interface InternalQ { t: QType; ins: string; crit: unknown; labels?: { false: string; true: string } }
+export interface InternalQ {
+  t: QType;
+  ins: string;
+  crit: unknown;
+  labels?: { false: string; true: string };
+  /** The caller's option indices in the order the head should see them: slot `s` shows option
+  `optionOrder[s]`. Set by `toInternal` from a question's `option_order`. */
+  optionOrder?: number[];
+}
 /** Python `json.dumps` for a finite number. JavaScript prints the same shortest round-trip
 digits, but Python switches to exponent notation below 1e-4 (JavaScript: below 1e-6) and pads the
 exponent to two digits (`5e-05`, not `5e-5`). An integer-valued number prints as before, which
@@ -197,6 +205,20 @@ export function buildSequence(tok: TokenizerLike, state: unknown, q: InternalQ,
   const stAll = tok.encode(serializeState(state).split(tok.maskToken).join(" "));
   return sequenceWithState(buildQuestionPrefix(tok, q, maxLen, headMaxLen, optionOrder), stAll, tok.sepId, maxLen, truncateLeft);
 }
+/** Put a slot-ordered probability row back into the caller's option order.
+ *
+ * `buildQuestionPrefix` puts option `order[s]` in slot `s`, so a head row comes back indexed by
+ * slot, while everything downstream indexes by option -- `keys[best]` for a choice, `i * p[i]` for a
+ * score level, `p[1]` for noul-true. Without the inverse the probabilities stay attached to the
+ * wrong options, which is silent. Mirrors `laya.common.unpermute_probs` (`laya/common.py:557`): a
+ * missing order, or one whose length is not the row's, returns the row untouched, so the canonical
+ * path is unaffected. */
+export function unpermuteProbs(p: number[], order?: number[] | null): number[] {
+  if (!order || order.length !== p.length) return p;
+  const canonical = new Array<number>(p.length);
+  for (let s = 0; s < order.length; s++) canonical[order[s]] = p[s];
+  return canonical;
+}
 export function softmax(z: number[]): number[] {
   const m = Math.max(...z);
   const e = z.map((v) => Math.exp(v - m));
@@ -384,9 +406,13 @@ export function flagLowConfidence(
   }
 }
 export const TEMP_MIN = 0.5, TEMP_MAX = 5.0;
+/** Clamp numeric temperatures, falling back to 1.0 for malformed values.
+ * Python's float() rejects blanks, arrays and booleans; Number() would coerce them. */
 export function clampTemperature(t: unknown): number {
-  if (t === null || t === undefined || t === "" || typeof t === "boolean") return 1.0;
-  const f = typeof t === "number" ? t : Number(t);
+  let f: number;
+  if (typeof t === "number" || typeof t === "bigint") f = Number(t);
+  else if (typeof t === "string" && t.trim() !== "") f = Number(t);
+  else return 1.0;
   if (!Number.isFinite(f)) return 1.0;
   return Math.min(TEMP_MAX, Math.max(TEMP_MIN, f));
 }

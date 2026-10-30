@@ -38,7 +38,9 @@ export function triageQuestions(): Record<string, unknown> {
 }
 
 export function emailQuestions(categories?: Record<string, string>): Record<string, unknown> {
-  const cats: Record<string, string> = categories ?? {
+  // Python treats an empty category map as a request for the defaults.
+  const cats: Record<string, string> =
+    categories && Object.keys(categories).length > 0 ? categories : {
     billing: "invoices, payments, refunds",
     technical: "bugs, outages, integrations",
     sales: "pricing, demos, new purchases",
