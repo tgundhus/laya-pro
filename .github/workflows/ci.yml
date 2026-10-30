@@ -91,12 +91,14 @@ jobs:
           # `langchain` for the same reason: without langchain-core the runnables fall back
           # to their plain-object path, so tests/test_langchain.py never checks the real
           # Runnable behaviour (batch delegation, pydantic field validation) it is there for.
-          pip install -e ".[mcp,serve,langchain]" httpx
+          pip install -e ".[mcp,serve,langchain,agno]" httpx
           # The pytest-style suites need the runner; nothing else in this job uses it.
           pip install pytest
 
       - name: Import check
         run: python -c "import laya; print(laya.__version__); print(sorted(laya.__all__))"
+      - name: Agno integration uses the installed framework
+        run: python -c "from laya.integrations.agno import _AGNO_AVAILABLE; assert _AGNO_AVAILABLE"
 
       # The install above is what makes tests/test_langchain.py run on real Runnables, and
       # nothing proves it took: with langchain-core missing, the checks inside that file's
@@ -290,6 +292,29 @@ jobs:
           npm test
           npm run test:integration
           npm pack --dry-run
+
+  python-sdk:
+    name: Python HTTP SDK (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install build tools and offline fixture server
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e '.[serve]' build
+      - name: Build and verify isolated wheel, source distribution and HTTP contract
+        run: |
+          python -m build sdk/python --outdir sdk/python/dist
+          python sdk/python/tests/verify_package.py sdk/python/dist --server-python "$(which python)"
 
   build:
     name: package
