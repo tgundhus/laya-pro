@@ -226,7 +226,11 @@ by 0.009 and `ece` by 0.006 — the kind of drift `compare --tolerance` is meant
 
 ## Dataset format
 
-One JSON object per line (JSONL). Blank lines and lines starting with `#` are ignored.
+One JSON object per line (JSONL), encoded as UTF-8 with an optional BOM. Blank lines and lines
+starting with `#` are ignored. Unreadable files and malformed rows raise `EvalError`; row errors
+name the file and line. Python callers use `Dataset([Example(...)])` or `Example.from_dict(...)`:
+each row must have dictionary `questions` and `expected`, and expected IDs must exist in questions.
+These checks run before prediction.
 
 | field | required | meaning |
 |---|---|---|
@@ -335,6 +339,11 @@ no value: `run` names the metric it could not compute instead of publishing a si
 `--min` / `--max` gate naming that metric fails as missing. The tolerances a run was asked for are
 recorded in the report's `config` block, so a reviewed baseline says which columns it expects.
 
+Each `--min METRIC=VALUE` or `--max METRIC=VALUE` checks exactly the named metric; a missing
+metric fails. A noul-only run cannot satisfy `--min choice_accuracy=...`. Use `--min-accuracy`
+to select `choice_accuracy` when present, otherwise `noul_accuracy`. CLI limits and tolerances
+must be finite numbers.
+
 ## Batching and timing
 
 `--batch-size N` scores up to N consecutive rows that share a checkpoint and a question schema in
@@ -353,6 +362,9 @@ chunk whose call raised still counts in `rows_grouped` and `max_chunk`, next to 
 `config.errored`. The default is `--on-error fail`, which re-raises instead of publishing a report
 whose metrics cover only the calls that came back. The two `*_ms` metrics count only the calls that
 returned, so a failed call never contributes a latency it did not measure.
+
+A batch runner must return exactly one result per input row. Missing or extra results raise
+`EvalError`, including with `on_error="skip"`, so the report cannot silently score a subset.
 
 ### Grouping the rows inside a batch
 
@@ -452,7 +464,7 @@ is reviewable on its own:
 | `schema` | the report shape, `laya-evals-report/1`, so a consumer can refuse one it cannot read |
 | `dataset` | the path as typed -- a name, not a hash |
 | `dataset_sha256` | the sha256 of the dataset bytes that were parsed |
-| `questions_sha256` | a fingerprint of the question schema: every question's id, type, `instructions` and `criteria`, over the whole dataset |
+| `questions_sha256` | a fingerprint of every question's id, type, `instructions`, `labels`, `criteria` and explicit `option_order`, over the whole dataset |
 | `laya_version` | the `laya` that computed the numbers |
 | `coverage_metric_definition` | which definition of `aurc` / `selective_accuracy@*` produced this report (see [coverage cuts](#coverage-cuts-and-ties)). A relative gate rule on either refuses a baseline recorded under a different one, rather than subtracting numbers that do not mean the same thing |
 | `thresholds` | the gate this run applied: `min`, `max` and `baseline_tolerance` |
@@ -464,6 +476,9 @@ refetched under the same name, and a CI cache can hand two runs the same filenam
 bytes. `questions_sha256` covers what was *asked* rather than how many rows there were, so adding
 states to an unchanged question set leaves the fingerprint alone -- `dataset_sha256` still moves,
 and adding a row is a change to the data, not to the question.
+
+An explicit `option_order` changes the input the model reads and therefore changes the fingerprint.
+Question sets without that field retain their existing fingerprints.
 
 It covers `instructions` too, because the instruction text is the prompt. `build_sequence` renders
 `"<type> question: <instructions>"` into the tokenized head, `Agent` refuses a question without one
@@ -497,6 +512,12 @@ caller driving `laya.evals.evaluate` directly gets the same identity a CLI run d
 - `laya-evals run ... --baseline baseline.json --tolerance ...` exits non-zero on drift, so it
   drops into CI unchanged. `laya.evals.EvalReport.compare` and `assert_regression` expose the
   same logic for tests.
+
+Reports and baselines must contain metric names mapped to numbers; booleans, strings, nulls
+and empty baselines raise `EvalError`. A candidate missing a baseline metric fails the gate.
+Python tolerance maps must also contain numbers: positive infinity is refused because any
+drift would pass, while NaN and negative tolerances remain failing comparisons. Saved reports
+accept UTF-8 with an optional BOM; unreadable files and invalid report shapes are usage errors.
 
 The metric gate answers "did the numbers move". It cannot answer "were these the same numbers",
 because `compare` reads `overall` and only `overall` -- so a baseline recorded against one dataset

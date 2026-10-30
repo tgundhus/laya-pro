@@ -42,7 +42,8 @@ def inspect_calibration(config: Dict[str, Any]) -> Dict[str, Any]:
         return _entry(UNKNOWN, "training metadata present but no calibration block; checkpoint predates #933")
     types: Dict[str, Any] = {}
     for name, entry in calibration.items():
-        if not isinstance(entry, dict) or not isinstance(entry.get("items"), int):
+        if (not isinstance(entry, dict) or isinstance(entry.get("items"), bool)
+                or not isinstance(entry.get("items"), int)):
             types[name] = _entry(UNKNOWN, "calibration entry is malformed")
             continue
         items = entry["items"]
@@ -56,7 +57,7 @@ def inspect_calibration(config: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(issues, list):
             types[name] = _entry(UNKNOWN, "calibration entry has no issues list; cannot tell limitations")
         elif issues:
-            types[name] = _entry(INSUFFICIENT, "fitted with recorded limitations: " + "; ".join(str(i) for i in issues),
+            types[name] = _entry(INSUFFICIENT, "limitations recorded: " + "; ".join(str(i) for i in issues),
                                  {"items": items, "issues": issues})
         else:
             types[name] = _entry(PRESENT, "fitted with no recorded issues on %d items" % items,
@@ -77,16 +78,22 @@ _PROVENANCE_KEYS = ("laya_version",)
 _IDENTITY_CONFLICT_KEYS = ("dataset_sha256", "questions_sha256")
 
 
+def _report_identity(report: Dict[str, Any]) -> Dict[str, Any]:
+    """Read config first, then top-level identity, matching laya.evals._identity_of."""
+    config = report.get("config")
+    found = dict(config) if isinstance(config, dict) else {}
+    for key in _IDENTITY_KEYS + _PROVENANCE_KEYS:
+        if found.get(key) is None and report.get(key) is not None:
+            found[key] = report[key]
+    return found
+
+
 def inspect_report(report: Dict[str, Any]) -> Dict[str, Any]:
     """Evidence state of the report identity and optional provenance fields."""
-    config = report.get("config")
-    if not isinstance(config, dict):
-        return _entry(UNKNOWN, "report has no config block; identity unknown")
+    identity = _report_identity(report)
     fields = {}
     for key in _IDENTITY_KEYS + _PROVENANCE_KEYS:
-        value = config.get(key)
-        if value is None and report.get(key) is not None:
-            value = report.get(key)
+        value = identity.get(key)
         fields[key] = _entry(PRESENT, "recorded", {"value": value}) if value is not None else _entry(UNKNOWN, "not recorded in this report")
     overall = PRESENT if all(fields[key]["state"] == PRESENT for key in _IDENTITY_KEYS) else UNKNOWN
     return {"state": overall, "fields": fields}
@@ -114,7 +121,7 @@ def relate(config: Dict[str, Any], report: Dict[str, Any]) -> Dict[str, Any]:
     checkpoint). Everything else is UNKNOWN -- current artifacts expose no immutable
     shared checkpoint identity.
     """
-    report_config = report.get("config") if isinstance(report.get("config"), dict) else {}
+    report_config = _report_identity(report)
     conflicts = []
     for key in _IDENTITY_CONFLICT_KEYS:
         a = _field(config, key)
@@ -126,21 +133,31 @@ def relate(config: Dict[str, Any], report: Dict[str, Any]) -> Dict[str, Any]:
     return _entry(UNKNOWN, "no immutable shared checkpoint identity between this checkpoint artifact and the report")
 
 
+def _read_json_object(path: str) -> Dict[str, Any]:
+    """Read an artifact or refuse it with a message naming the file."""
+    try:
+        with open(path, "r", encoding="utf-8-sig") as handle:
+            document = json.load(handle)
+    except json.JSONDecodeError as exc:
+        raise ValueError("%s is not valid JSON: %s" % (path, exc)) from exc
+    except UnicodeDecodeError as exc:
+        raise ValueError("%s is not UTF-8 text: %s" % (path, exc)) from exc
+    except RecursionError as exc:
+        raise ValueError("%s is JSON nested deeper than it can be read: %s" % (path, exc)) from exc
+    if not isinstance(document, dict):
+        raise ValueError("%s is not a JSON object" % path)
+    return document
+
+
 def inspect_checkpoint(checkpoint_dir: str, report_path: Optional[str] = None) -> Dict[str, Any]:
     """Full read-only evidence inspection for one checkpoint (optionally one report)."""
     config_path = os.path.join(checkpoint_dir, "rl_agent_config.json")
     if not os.path.isdir(checkpoint_dir) or not os.path.isfile(config_path):
         raise FileNotFoundError("no rl_agent_config.json under %r" % checkpoint_dir)
-    with open(config_path, "r", encoding="utf-8") as handle:
-        config = json.load(handle)
-    if not isinstance(config, dict):
-        raise ValueError("%s is not a JSON object" % config_path)
+    config = _read_json_object(config_path)
     out: Dict[str, Any] = {"checkpoint": checkpoint_dir, "calibration": inspect_calibration(config)}
     if report_path is not None:
-        with open(report_path, "r", encoding="utf-8") as handle:
-            report = json.load(handle)
-        if not isinstance(report, dict):
-            raise ValueError("%s is not a JSON object" % report_path)
+        report = _read_json_object(report_path)
         out["report"] = inspect_report(report)
         out["relationship"] = relate(config, report)
     return out

@@ -99,21 +99,20 @@ def _parse_pairs(pairs: Optional[Sequence[str]]) -> Dict[str, float]:
             number = float(raw)
         except ValueError:
             raise EvalError("%r is not a number in %r" % (raw, pair))
-        # float() accepts "nan", and a NaN limit or tolerance would disable the gate it names.
-        if math.isnan(number):
+        # A non-finite limit or tolerance would disable the gate it names.
+        if not math.isfinite(number):
             raise EvalError("%r is not a number in %r" % (raw, pair))
         out[name.strip()] = number
     return out
 
 
 def _limit(raw: str) -> float:
-    """argparse `type=` for `--min-accuracy` and `--max-ece`: refuse "nan" as `_parse_pairs` does."""
+    """argparse `type=` for `--min-accuracy` and `--max-ece`: require finite numbers."""
     try:
         number = float(raw)
     except ValueError:
         raise argparse.ArgumentTypeError("%r is not a number" % raw)
-    # float() accepts "nan", and a NaN limit would disable the gate it names.
-    if math.isnan(number):
+    if not math.isfinite(number):
         raise argparse.ArgumentTypeError("%r is not a number" % raw)
     return number
 
@@ -125,15 +124,25 @@ def _parse_revisions(pairs: Optional[Sequence[str]]) -> Tuple[Optional[str], Dic
     checkpoint, which is what an auto-routing run needs, because the three checkpoints are three
     Hub repositories and one commit cannot exist in all of them.
     """
+    from .router import canonical_name
+
     shared: Optional[str] = None
     per_model: Dict[str, str] = {}
+    pinned: Dict[str, Tuple[str, str]] = {}
     for pair in pairs or []:
         name, sep, value = pair.partition("=")
         if sep:
             name, value = name.strip(), value.strip()
             if not name or not value:
                 raise EvalError("expected NAME=REVISION, got %r" % pair)
+            checkpoint = canonical_name(name)
+            earlier = pinned.get(checkpoint)
+            if earlier is not None and earlier[1] != value:
+                spelled = "" if earlier[0] == name else " (given as %r and %r)" % (earlier[0], name)
+                raise EvalError("--revision names two commits for %r%s: %r, %r"
+                                % (checkpoint, spelled, earlier[1], value))
             per_model[name] = value
+            pinned[checkpoint] = (name, value)
         else:
             value = pair.strip()
             if not value:
@@ -258,15 +267,20 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _load_report(path: str) -> Dict[str, Any]:
-    with open(path, "r", encoding="utf-8") as handle:
-        return json.load(handle)
+    try:
+        with open(path, "r", encoding="utf-8-sig") as handle:
+            document = json.load(handle)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise EvalError("cannot read report %r: %s" % (path, exc)) from exc
+    if not isinstance(document, dict):
+        raise EvalError("cannot read report %r: expected a JSON object, found %s"
+                        % (path, type(document).__name__))
+    return document
 
 
 def _check_thresholds(overall: Dict[str, float], mins: Dict[str, float],
                       maxs: Dict[str, float]) -> List[str]:
     failures: List[str] = []
-    if "choice_accuracy" not in overall and "noul_accuracy" in overall:
-        overall = dict(overall, choice_accuracy=overall["noul_accuracy"])
     for name, limit in mins.items():
         value = overall.get(name)
         if value is None:
@@ -452,11 +466,17 @@ def _cmd_run(args) -> int:
                                    " ".join("%s=%.4f" % (k, v) for k, v in sorted(metrics.items()))))
 
     if args.json_out:
-        with open(args.json_out, "w", encoding="utf-8") as handle:
-            json.dump(report.to_json(), handle, ensure_ascii=False, indent=2, sort_keys=True)
+        try:
+            with open(args.json_out, "w", encoding="utf-8") as handle:
+                json.dump(report.to_json(), handle, ensure_ascii=False, indent=2, sort_keys=True)
+        except OSError as exc:
+            raise EvalError("cannot write report %r: %s" % (args.json_out, exc)) from exc
     if args.markdown_out:
-        with open(args.markdown_out, "w", encoding="utf-8") as handle:
-            handle.write(report.to_markdown())
+        try:
+            with open(args.markdown_out, "w", encoding="utf-8") as handle:
+                handle.write(report.to_markdown())
+        except OSError as exc:
+            raise EvalError("cannot write markdown report %r: %s" % (args.markdown_out, exc)) from exc
 
     if failures:
         for failure in failures:
@@ -468,7 +488,7 @@ def _cmd_run(args) -> int:
 def _cmd_evidence(args) -> int:
     try:
         result = evidence.inspect_checkpoint(args.checkpoint, args.report)
-    except (FileNotFoundError, ValueError) as exc:
+    except (OSError, ValueError) as exc:
         print("laya-evals: %s" % exc, file=sys.stderr)
         return 2
     print(evidence.format_summary(result))
@@ -518,7 +538,7 @@ def _cmd_agreement(args) -> int:
     runs = []
     for path in (args.reference, args.repeat, args.student):
         try:
-            with open(path, encoding="utf-8") as handle:
+            with open(path, encoding="utf-8-sig") as handle:
                 runs.append(json.load(handle, object_pairs_hook=unique_object))
         except (OSError, ValueError, RecursionError) as exc:
             raise EvalError("cannot read agreement run %r: %s" % (path, exc)) from exc

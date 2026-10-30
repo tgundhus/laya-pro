@@ -24,14 +24,17 @@ def _text(value: Any, where: str) -> None:
 
 
 def _json(value: Any, where: str) -> str:
-    """Strict JSON, preserving object order because it can change model inputs."""
+    """Strict JSON, preserving object order because it can change model inputs.
+
+    Container subclasses serialize as their mappings or arrays; scalar types stay exact.
+    """
     def check(item):
-        if type(item) is dict:
+        if isinstance(item, dict):
             for key, child in item.items():
                 if not isinstance(key, str):
                     raise ValueError("object keys must be strings")
                 check(child)
-        elif type(item) is list:
+        elif isinstance(item, list):
             for child in item:
                 check(child)
         elif type(item) not in (str, int, float, bool, type(None)):

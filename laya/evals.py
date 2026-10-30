@@ -67,6 +67,39 @@ class EvalError(ValueError):
     """A dataset or report is malformed; the message names the row or field."""
 
 
+def _metric_map(values: Any, label: str, *, allow_empty: bool = False) -> Dict[str, Any]:
+    """Validate the metric maps before comparison can subtract their values."""
+    if not isinstance(values, dict):
+        raise EvalError("%s metrics must be an object of metric name to number, got %s"
+                        % (label, type(values).__name__))
+    if not values and not allow_empty:
+        raise EvalError("%s has no metrics to compare, so nothing in it could fail" % label)
+    for name, value in values.items():
+        if not isinstance(name, str):
+            raise EvalError("%s metric name must be a string, got %s" % (label, type(name).__name__))
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise EvalError("%s metric %r is not a number, got %s"
+                            % (label, name, type(value).__name__))
+    return values
+
+
+def _tolerance_map(tolerances: Any) -> Dict[str, Any]:
+    """Reject malformed tolerances and positive infinity, which can never fail a gate."""
+    if tolerances is None:
+        return {}
+    if not isinstance(tolerances, dict):
+        raise EvalError("tolerances must be an object of metric name to number, got %s"
+                        % type(tolerances).__name__)
+    for name, value in tolerances.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise EvalError("tolerance for %r is not a number, got %s"
+                            % (name, type(value).__name__))
+        # NaN and negative tolerances remain failing comparisons, as they were before.
+        if value == float("inf"):
+            raise EvalError("tolerance for %r is Infinity, so it accepts a drift of any size" % name)
+    return tolerances
+
+
 def compare_agreement(reference: Dict, repeat: Dict, student: Dict, *,
                       bootstrap_samples: int = 2000, seed: int = 0) -> Dict[str, Any]:
     """Compare saved teacher reference, teacher repeat, and student choice observations.
@@ -123,9 +156,9 @@ class Example:
             raise EvalError("%s 'questions' must be an object" % where)
         if not isinstance(expected, dict):
             raise EvalError("%s 'expected' must be an object keyed by question id" % where)
-        unknown = sorted(set(expected) - set(questions))
+        unknown = sorted(set(expected) - set(questions), key=str)
         if unknown:
-            raise EvalError("%s 'expected' names unknown question(s): %s" % (where, ", ".join(unknown)))
+            raise EvalError("%s 'expected' names unknown question(s): %s" % (where, ", ".join(map(str, unknown))))
         tags = row.get("tags") or ()
         if not isinstance(tags, (list, tuple)):
             raise EvalError("%s 'tags' must be a list" % where)
@@ -139,6 +172,20 @@ class Dataset:
 
     def __init__(self, examples: Iterable[Example]):
         self.examples: List[Example] = list(examples)
+        for index, example in enumerate(self.examples):
+            # Check attributes rather than the class so existing duck-typed rows still work.
+            for name in ("questions", "expected"):
+                if not hasattr(example, name):
+                    raise EvalError("example %d must be an Example, got %s with no %r; build each row "
+                                    "with laya.evals.Example(...) or Example.from_dict(...)"
+                                    % (index, type(example).__name__, name))
+                if not isinstance(getattr(example, name), dict):
+                    raise EvalError("example %d %r must be an object, got %s"
+                                    % (index, name, type(getattr(example, name)).__name__))
+            unknown = sorted(set(example.expected) - set(example.questions), key=str)
+            if unknown:
+                raise EvalError("example %d 'expected' names unknown question(s): %s"
+                                % (index, ", ".join(map(str, unknown))))
 
     def __len__(self) -> int:
         return len(self.examples)
@@ -146,16 +193,20 @@ class Dataset:
     @classmethod
     def from_jsonl(cls, path: str) -> "Dataset":
         examples: List[Example] = []
-        with open(path, "r", encoding="utf-8") as handle:
-            for lineno, line in enumerate(handle, 1):
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                try:
-                    row = json.loads(line)
-                except ValueError as exc:
-                    raise EvalError("%s:%d is not valid JSON: %s" % (path, lineno, exc))
-                examples.append(Example.from_dict(row, where="%s:%d" % (path, lineno)))
+        try:
+            with open(path, "r", encoding="utf-8-sig") as handle:
+                for lineno, line in enumerate(handle, 1):
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except ValueError as exc:
+                        raise EvalError("%s:%d is not valid JSON: %s" % (path, lineno, exc)) from exc
+                    examples.append(Example.from_dict(row, where="%s:%d" % (path, lineno)))
+        except (OSError, UnicodeDecodeError, RecursionError) as exc:
+            # Do not catch ValueError here: EvalError row failures must keep their line number.
+            raise EvalError("%s cannot be read: %s" % (path, exc)) from exc
         if not examples:
             raise EvalError("%s contains no examples" % path)
         return cls(examples)
@@ -218,15 +269,21 @@ def questions_fingerprint(dataset: "Dataset") -> str:
     (`laya/agent.py:748-749`), and `_resolve_noul_labels` (`laya/common.py:92`) turns it into the
     option text the model reads. Leaving it out let two question sets with different rendered
     options hash alike, which is the one thing this function exists to prevent.
+
+    `option_order`, when present, is hashed too: it changes the order the model reads the options.
+    Omitting it from questions that do not use it preserves their existing baseline fingerprints.
     """
     schemas = set()
     for example in dataset.examples:
         for qid, question in example.questions.items():
             body = question if isinstance(question, dict) else {}
-            schemas.add(_canonical({"qid": qid, "type": body.get("type"),
-                                    "instructions": _as_tokenized_instructions(body),
-                                    "labels": body.get("labels"),
-                                    "criteria": body.get("criteria")}))
+            hashed = {"qid": qid, "type": body.get("type"),
+                      "instructions": _as_tokenized_instructions(body),
+                      "labels": body.get("labels"), "criteria": body.get("criteria")}
+            # Omit an unused field so existing baselines keep their question fingerprint.
+            if "option_order" in body:
+                hashed["option_order"] = body["option_order"]
+            schemas.add(_canonical(hashed))
     digest = hashlib.sha256()
     for schema in sorted(schemas):
         digest.update(schema.encode("utf-8"))
@@ -380,10 +437,10 @@ def _answer_confidence(answer: Dict[str, Any]) -> Optional[float]:
     and the gap between them; `docs/evals.md` says so where an operator reads the metrics.
     """
     confidence = answer.get("answer_confidence")
-    if isinstance(confidence, (int, float)):
+    if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
         return float(confidence)
     confidence = answer.get("confidence")
-    if isinstance(confidence, (int, float)):
+    if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
         return float(confidence)
     if answer.get("type") == "noul":
         p = float(answer.get("noul", 0.0))
@@ -698,7 +755,9 @@ class EvalReport:
             for value in sorted(self.slices[dimension]):
                 cells = ["%.4f" % self.slices[dimension][value].get(m, float("nan"))
                          if m in self.slices[dimension][value] else "" for m in metrics]
-                lines.append("| %s | %s |" % (value, " | ".join(cells)))
+                label = (str(value).replace("\\", "\\\\").replace("|", "\\|")
+                         .replace("\r", " ").replace("\n", " "))
+                lines.append("| %s | %s |" % (label, " | ".join(cells)))
         return "\n".join(lines) + "\n"
 
     def comparable_to(self, baseline: Dict[str, Any]) -> Tuple[bool, List[str]]:
@@ -739,9 +798,15 @@ class EvalReport:
         every example errored under ``on_error="skip"`` has an empty ``overall``, and must not
         pass the gate by having nothing left to compare. A NaN metric, baseline or tolerance
         fails the comparison too.
+
+        Malformed metric maps, an empty baseline, and non-numeric or infinite positive
+        tolerances raise ``EvalError`` before arithmetic. A bare baseline metric map is accepted.
         """
-        base = (baseline or {}).get("overall", baseline or {})
-        tolerances = tolerances or {}
+        if not isinstance(baseline, dict):
+            raise EvalError("baseline report must be a JSON object, got %s" % type(baseline).__name__)
+        base = _metric_map(baseline.get("overall", baseline), "baseline")
+        overall = _metric_map(self.overall, "report", allow_empty=True)
+        tolerances = _tolerance_map(tolerances)
         deltas: Dict[str, Dict[str, float]] = {}
         ok = True
         for metric, base_value in base.items():
@@ -759,16 +824,16 @@ class EvalReport:
                 if conflict is not None:
                     deltas[metric] = {
                         "baseline": float(base_value),
-                        "value": float(self.overall.get(metric, float("nan"))),
+                        "value": float(overall.get(metric, float("nan"))),
                         "diff": float("nan"), "tolerance": allowed, "incomparable": conflict}
                     ok = False
                     continue
-            if metric not in self.overall:
+            if metric not in overall:
                 deltas[metric] = {"baseline": float(base_value), "value": float("nan"),
                                   "diff": float("nan"), "tolerance": allowed, "missing": True}
                 ok = False
                 continue
-            value = self.overall[metric]
+            value = overall[metric]
             diff = value - float(base_value)
             deltas[metric] = {"baseline": float(base_value), "value": value,
                               "diff": diff, "tolerance": allowed}
@@ -1079,6 +1144,11 @@ def evaluate(runner: Any, dataset: Dataset, evaluators: Optional[Sequence[Evalua
                           for offset in range(len(chunk)))
             index += len(chunk)
             continue
+        # zip would silently discard rows or extra answers if the runner breaks this contract.
+        results = list(results)
+        if len(results) != len(chunk):
+            raise EvalError("runner.predict_batch returned %d results for a chunk of %d rows; every row "
+                            "needs its own result" % (len(results), len(chunk)))
         elapsed = (time.perf_counter() - started) * 1000.0
         # A chunk is one call, so each of its rows waited all of `elapsed`; the split figure is a
         # throughput share, not a latency, and putting the two in one list made a batched run
@@ -1165,6 +1235,7 @@ def assert_regression(report: EvalReport, baseline: Dict[str, Any],
     ok, deltas = report.compare(baseline, tolerances)
     if not ok:
         failed = {m: d for m, d in deltas.items()
-                  if d.get("missing") or abs(d["diff"]) > d["tolerance"]}
+                  if d.get("missing") or d.get("incomparable")
+                  or not abs(d["diff"]) <= d["tolerance"]}
         raise AssertionError("evaluation regressed: %s" % json.dumps(failed, sort_keys=True))
     return deltas
