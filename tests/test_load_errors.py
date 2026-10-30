@@ -367,7 +367,7 @@ check_true("39/what it reports is the question, as the page says",
 
 # case 4 quotes the guard as an expression, so the expression has to be the code's -- under any
 # name `render_options` is bound to, and any name its count is stored in.
-_assign = re.search(r"(\w+) = len\(render_options\((\w+)\)\)", AGENT_SRC)
+_assign = re.search(r"(\w+) = (?:len\(render_options\(\w+\)\)|stats\[\"options\"\])", AGENT_SRC)
 check_true("39/the guard it quotes is the guard the code compares",
            _assign is not None and "len(markers) != %s:" % _assign.group(1) in AGENT_SRC,
            AGENT_SRC[AGENT_SRC.find("len(markers)"):][:60] if "len(markers)" in AGENT_SRC else "")

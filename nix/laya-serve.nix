@@ -251,6 +251,17 @@ in
       '';
     };
 
+    bodyReadTimeout = lib.mkOption {
+      type = lib.types.nullOr lib.types.ints.positive;
+      default = null;
+      example = 10;
+      description = ''
+        Maximum seconds to receive a request body (sets LAYA_BODY_READ_TIMEOUT).
+        A stalled upload answers 408 and releases its admission slot.
+        null keeps the server default of 10 seconds.
+      '';
+    };
+
     revision = lib.mkOption {
       type = lib.types.nullOr (lib.types.strMatching "[A-Za-z0-9._/-]+");
       default = null;
@@ -273,7 +284,7 @@ in
       default = null;
       example = 16;
       description = ''
-        Opt-in elimination group size for large choices on /v1/systemone
+        Opt-in elimination group size for large choices on both decision routes
         (LAYA_TOURNAMENT_GROUP). null keeps one-pass inference. Choices can
         contain up to 255 labels when narrowing is eligible; ordered choices
         keep the one-pass cap. Probabilities describe the surviving finalists.
@@ -412,6 +423,8 @@ in
         LAYA_MAX_TOKEN_BUDGET = toString cfg.maxTokenBudget;
       } // lib.optionalAttrs (cfg.maxBatchTokens != null) {
         LAYA_MAX_BATCH_TOKENS = toString cfg.maxBatchTokens;
+      } // lib.optionalAttrs (cfg.bodyReadTimeout != null) {
+        LAYA_BODY_READ_TIMEOUT = toString cfg.bodyReadTimeout;
       } // lib.optionalAttrs (cfg.tournamentGroup != null) {
         LAYA_TOURNAMENT_GROUP = toString cfg.tournamentGroup;
       } // lib.optionalAttrs (cfg.revision != null) {

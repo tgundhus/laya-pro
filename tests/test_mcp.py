@@ -2730,11 +2730,11 @@ def test_default_model_env():
 def test_server_registration():
     tools = asyncio.run(mcp_server.list_tools())
     names = sorted(t.name for t in tools)
-    ok("server/tool_names", names == ["laya_decide", "laya_predict", "laya_predict_batch",
+    ok("server/tool_names", names == ["laya_decide", "laya_predict", "laya_predict_batch", "laya_predict_long",
                                       "laya_preset", "laya_route", "laya_route_batch",
-                                      "laya_shortlist", "laya_status"], repr(names))
+                                      "laya_shortlist", "laya_status", "laya_tournament"], repr(names))
     decision = {"laya_predict", "laya_route", "laya_preset", "laya_shortlist",
-                "laya_predict_batch", "laya_route_batch", "laya_decide"}
+                "laya_predict_batch", "laya_route_batch", "laya_decide", "laya_predict_long", "laya_tournament"}
     for t in tools:
         desc = (t.description or "").lower()
         ok("server/desc_%s_nonempty" % t.name, bool(desc.strip()), repr(desc))
@@ -2889,7 +2889,7 @@ def test_cli_mcp_page_tool_argument_rows():
         return None
 
     for tool in ("laya_status", "laya_route", "laya_predict",
-                 "laya_shortlist", "laya_preset", "laya_decide"):
+                 "laya_shortlist", "laya_preset", "laya_decide", "laya_tournament", "laya_predict_long"):
         cell = row_cell(tool)
         ok("docs-mcp/args_row_%s_present" % tool, cell is not None, "row not found")
         if cell is None:

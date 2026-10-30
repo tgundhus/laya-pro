@@ -252,8 +252,10 @@ def _copy_detection(det: Dict[str, Any]) -> Dict[str, Any]:
             for k, v in det.items()}
 
 
-def _detect(state: Any) -> Dict[str, Any]:
+def _detect(state: Any, *, explain: bool = False) -> Dict[str, Any]:
     """`analyse(state)`, remembered for recently routed states."""
+    if explain:
+        return analyse(state, explain=True)
     key = _detection_key(state)
     if key is None:
         return analyse(state)
@@ -940,6 +942,18 @@ class Router(HookRegistry):
         if source is not None and not isinstance(source, (str, tuple, list)):
             raise TypeError("checkpoint source for %r must be a repo id, a local path or a (repo, subfolder) "
                             "pair, got %s" % (name, type(source).__name__))
+        # The sequence half of that sentence was never opened. `_split` pads with one `None`, so an
+        # empty pair unpacks to one value and `registered`, `route(model=...)` and `load()` all fail
+        # later with `ValueError: not enough values to unpack (expected 2, got 1)` -- after the
+        # registration reported success -- while a third element is silently truncated and a number
+        # part is stringified into a repo id like `acme/5`. Refuse the shape here, where the name is
+        # known, so nothing is stored and no later call has to guess what the pair meant.
+        if isinstance(source, (tuple, list)) and (
+                not 1 <= len(source) <= 2
+                or not all(part is None or isinstance(part, str) for part in source)
+                or not any(isinstance(part, str) for part in source)):
+            raise TypeError("checkpoint source for %r must be a repo id, a local path or a (repo, subfolder) "
+                            "pair of strings, got %r" % (name, source))
         if isinstance(source, str) and source.startswith("~"):
             source = os.path.expanduser(source)     # a local path, never a Hub repo id
         # After every check that can refuse the registration, and before the write. A filter
@@ -1232,16 +1246,22 @@ class Router(HookRegistry):
         hooks=None,
         hooks_raise: Optional[bool] = None,
         hooks_timeout: Optional[float] = None,
+        *,
+        explain: bool = False,
     ) -> RouteDecision:
         """Decide which checkpoint to use, then let `on_route` hooks observe or replace it.
 
         `ctx.decision` is the `RouteDecision`; a hook may replace it (for example to pin a
         checkpoint) and the replacement is what gets returned and used. `hooks` are per-call
         hooks, appended after any installed on the Router.
+
+        `explain=True` adds language diagnostics when built-in detection runs. Explicit routing
+        overrides still skip it. A hook can replace the decision, including its diagnostics.
         """
         if questions is not None and not isinstance(questions, dict):
             raise TypeError("questions must be a dict of question id -> definition, got %s" % type(questions).__name__)
-        decision = self._route(state, questions, model=model, task=task, lang=lang, lang_guess=lang_guess)
+        decision = self._route(state, questions, model=model, task=task, lang=lang, lang_guess=lang_guess,
+                               **({"explain": True} if explain else {}))
         raise_errors = self.hooks_raise if hooks_raise is None else bool(hooks_raise)
         active = compose_hooks(self.hooks, hooks)
         timeout = self.hooks_timeout if hooks_timeout is None else validate_timeout(hooks_timeout)
@@ -1257,6 +1277,8 @@ class Router(HookRegistry):
         task: Optional[str] = None,
         lang: Optional[str] = None,
         lang_guess: Optional[Any] = None,
+        *,
+        explain: bool = False,
     ) -> RouteDecision:
         """Decide which checkpoint to use, without loading or running anything.
 
@@ -1310,7 +1332,7 @@ class Router(HookRegistry):
                         source, "English" if resolved else "non-English"),
                     detection=None, workflow=workflow)
 
-        det = _detect(state)
+        det = _detect(state, explain=True) if explain else _detect(state)
         if det["script"] == "unknown":
             key = self.default
             reason = "no letters detected in state; using default (%s)" % key
@@ -1587,6 +1609,7 @@ class Router(HookRegistry):
         *,
         hooks=None,
         hooks_raise: Optional[bool] = None,
+        explain: bool = False,
     ) -> List[RouteDecision]:
         """Route a heterogeneous request batch without loading any checkpoints.
 
@@ -1604,6 +1627,7 @@ class Router(HookRegistry):
                 every request's ``on_route`` dispatch, as on :meth:`route`.
             hooks (HookArg): Per-call hook or sequence of hooks for this call.
             hooks_raise: Override the Router's ``hooks_raise`` policy for this call.
+            explain: Include built-in language diagnostics for each request that uses detection.
         """
         if not isinstance(requests, SequenceABC) or isinstance(requests, (str, bytes)):
             raise TypeError("requests must be a sequence of request dictionaries")
@@ -1637,6 +1661,7 @@ class Router(HookRegistry):
                     hooks=hooks,
                     hooks_raise=hooks_raise,
                     hooks_timeout=hooks_timeout,
+                    **({"explain": True} if explain else {}),
                 )
             )
 
@@ -1763,6 +1788,8 @@ class Router(HookRegistry):
                 # checkpoint group again on what the start hooks left, so a rewritten question
                 # set or `ctx.max_len` only applies to its own request.
                 question_groups: List[Dict[str, Any]] = []
+                last_questions = object()
+                last_schema = None
                 for i, ctx in zip(indices, started):
                     if ctx.results is not None:
                         # A cache hit short-circuits inference; keep the `routing` key predict adds.
@@ -1789,7 +1816,12 @@ class Router(HookRegistry):
                             lang_key = detection.get("language")
                     # Order-sensitive at every nesting level (#166): options are positional, so two
                     # equal schemas with different key orders must not share a group.
-                    schema = _question_schema(ctx.questions)
+                    if ctx.questions is last_questions:
+                        schema = last_schema
+                    else:
+                        schema = _question_schema(ctx.questions)
+                        last_questions = ctx.questions
+                        last_schema = schema
                     for group in question_groups:
                         if (group["schema"] == schema and group["overrides"] == overrides
                                 and group["lang"] == lang_key):

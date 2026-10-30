@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np  # noqa: E402
 
 from laya.agent import Agent  # noqa: E402
+from _long_attribution import check_long_attribution
 from laya.common import window_budget  # noqa: E402
 from laya.onnx_agent import ONNXAgent  # noqa: E402
 
@@ -399,6 +400,48 @@ except Exception as exc:
 else:
     check("questions/a first-window end annotation preserves the scan's answers", actual, expected)
 
+removal_questions = {"dept": {"type": "choice", "instructions": "?", "criteria": {"a": "x", "b": "y"}},
+                       "urgent": QUESTIONS["urgent"]}
+
+
+def _remove_dept(ctx):
+    for row in ctx.results:
+        del row["answers"]["dept"]
+
+
+check_raises("end removal/a caller question cannot silently disappear from every window", ValueError,
+             lambda: _bare_onnx().predict_long(LONG_STATE, removal_questions, window=16, stride=8,
+                                             on_predict_end=_remove_dept))
+
+for policy in (True, False):
+    check_raises("end removal/partial removal is refused with hooks_raise=%s" % policy, ValueError,
+                 lambda: _bare_onnx().predict_long(
+                     LONG_STATE, removal_questions, window=16, stride=8, hooks_raise=policy,
+                     on_predict_end=lambda ctx: ctx.results[0]["answers"].pop("dept")))
+
+
+def _add_temporary(ctx):
+    ctx.questions["temporary"] = dict(removal_questions["urgent"])
+
+
+def _remove_temporary(ctx):
+    for row in ctx.results:
+        del row["answers"]["temporary"]
+
+
+try:
+    actual = _bare_onnx().predict_long(LONG_STATE, dict(removal_questions), window=16, stride=8,
+                                      on_predict_start=_add_temporary, on_predict_end=_remove_temporary)
+except Exception as exc:
+    FAIL.append("end removal/an in-place start addition raised %r after removal" % exc)
+else:
+    check("end removal/an in-place start addition can be uniformly removed", actual["answers"],
+          _bare_onnx().predict_long(LONG_STATE, removal_questions, window=16, stride=8)["answers"])
+check_raises("end removal/a start-added question missing in only one window is refused", ValueError,
+             lambda: _bare_onnx().predict_long(
+                 LONG_STATE, dict(removal_questions), window=16, stride=8, on_predict_start=_add_temporary,
+                 on_predict_end=lambda ctx: ctx.results[0]["answers"].pop("temporary")))
+
 for malformed in (None, [], {"bad": None}, {"bad": {}}, {"bad": {"type": "unknown"}}):
     errors = []
     for method in ("system_one", "predict_long"):
@@ -412,6 +455,8 @@ for malformed in (None, [], {"bad": None}, {"bad": {}}, {"bad": {"type": "unknow
 
 
 # ---------------------------------------------------------------- report
+check_long_attribution(_bare_onnx, check)
+
 print("\n%d passed, %d failed" % (len(PASS), len(FAIL)))
 for f in FAIL:
     print("  FAIL " + f)

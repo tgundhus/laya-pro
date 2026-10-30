@@ -84,6 +84,8 @@ setDefaultHooks([new MetricsHook()]);  // addDefaultHook(...) appends; clearDefa
 
 Asynchronous prediction hooks are awaited before the prediction returns, including when
 `hooksRaise` is `false`. Hooks should finish promptly; the native SDK does not cancel them.
+`Router.predictBatch` awaits each request's hooks and ends contexts in reverse start order.
+Process defaults run once per request, including when the Router delegates to an Agent.
 
 ## Structured decisions (`decide`)
 
@@ -113,6 +115,21 @@ free `decide(runner, state, schema, opts)` accepts anything with a `predict` met
 instead of a schema to get raw answers. Zod/TypeBox users can pass `z.toJSONSchema(Model)` —
 any object with a `toJSONSchema()` method is accepted. `planFromJsonSchema`,
 `questionsFromJsonSchema` and `answersToJson` expose the planning and projection steps.
+
+Use `agent.decideBatch(states, schema, opts)`, `router.decideBatch(...)`, or the free
+`decideBatch(runner, states, schema, opts)` for a shared schema over many states. Planning
+runs once, predictions use the runner's `predictBatch`, and results preserve input order.
+`batchSize` controls the forward-pass chunks. `returnDetails: true` includes
+`answerConfidence` (per-field `max(p)`, or null when unavailable), alongside the existing
+entropy confidence, probabilities, raw answers, usage and routing. `minConfidence` and
+`min_confidence` accept a threshold or bucket map and gate the returned batch after prediction.
+
+Questions may set `option_order: [1, 0]` to present options in a different order while
+returning probabilities and answers against the original choice keys, score levels or
+noul false/true indices. The array must contain each integer option index exactly once;
+booleans, strings, nulls and extra entries are rejected before inference. Shortlisting
+or tournament narrowing drops stale orders with a warning. Option-stability probes are
+not included.
 
 ## Truncation reporting
 

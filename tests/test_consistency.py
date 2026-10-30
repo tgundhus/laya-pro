@@ -7,6 +7,7 @@ that a 0.1 margin flags every answer that changed between Jev's repeated runs.
 
 Run: python tests/test_consistency.py
 """
+import copy
 import json
 import os
 import sys
@@ -780,6 +781,66 @@ third = o.predict_long(DOC + " and a tail the first document did not have", TEAM
 check("onnx/long: some windows kept: the deciding window is still named", "window" in third["answers"]["team"], True)
 check("onnx/long: some windows kept: only the windows read are counted",
       0 < third["usage"]["windows"] < third["answers"]["team"]["window"]["count"], True)
+
+
+def cache_attribution_scanner(factory, winner):
+    scanner = factory([DecisionCache()])
+    encode = scanner._encode_state
+
+    def encode_with_state(state, *args, **kwargs):
+        items = encode(state, *args, **kwargs)
+        for item in items:
+            item["scan_test_state"] = state
+        return items
+
+    def decode(logits, act, items, ids, internal, offset, **kwargs):
+        state = items[0]["scan_test_state"]
+        wins = len(state) == 64 if winner == "duplicate" else ord(state[0]) - 0x100 == winner * 32
+        confidence = 0.95 if wins else 0.6
+        return {qid: {"type": "choice", "choice": "billing", "answer_confidence": confidence,
+                      "confidence": confidence, "probabilities": {"billing": confidence, "tech": 1 - confidence}}
+                for qid in ids}
+
+    scanner._encode_state, scanner._decode_answers = encode_with_state, decode
+    return scanner
+
+
+for backend, factory in (("torch", make_scanner), ("onnx", make_onnx_scanner)):
+    unique_doc = "".join(chr(0x100 + i) for i in range(250))
+    for winner in (4, 6):  # the winner is retained, then newly computed from a nonzero miss-local row
+        scanner = cache_attribution_scanner(factory, winner)
+        scanner.predict_batch([unique_doc[32:96], unique_doc[128:192]], TEAM)
+        for phase in ("partial", "full"):
+            result = scanner.predict_long(unique_doc, TEAM, window=64, stride=32,
+                                          on_predict_end=lambda ctx: ctx.results.reverse())
+            check("%s/cache attribution: %s winner %d keeps its original span after reordering" % (backend, phase, winner),
+                  result["answers"]["team"].get("window"),
+                  {"index": winner, "token_start": winner * 32, "token_end": min(winner * 32 + 64, 250), "count": 7})
+            check("%s/cache attribution: %s counts inference windows only" % (backend, phase),
+                  result["usage"]["windows"], 5 if phase == "partial" else 0)
+
+        def clone(ctx):
+            ctx.results = copy.deepcopy(ctx.results)
+        result = scanner.predict_long(unique_doc, TEAM, window=64, stride=32, on_predict_end=clone)
+        check("%s/cache attribution: a later hook's cloned replay names no span" % backend,
+              "window" in result["answers"]["team"], False)
+
+        def edit(ctx):
+            answer = ctx.results[winner]["answers"]["team"]
+            answer["probabilities"]["billing"] = 0.94
+        result = scanner.predict_long(unique_doc, TEAM, window=64, stride=32, on_predict_end=edit)
+        check("%s/cache attribution: a later hook's nested replay edit names no span" % backend,
+              "window" in result["answers"]["team"], False)
+
+    scanner = cache_attribution_scanner(factory, "duplicate")
+    for phase in ("coalesced", "full"):
+        result = scanner.predict_long("a" * 250, TEAM, window=64, stride=32,
+                                      on_predict_end=lambda ctx: ctx.results.reverse())
+        check("%s/cache attribution: %s duplicate windows keep their own restored origins" % (backend, phase),
+              result["answers"]["team"].get("window"),
+              {"index": 5, "token_start": 160, "token_end": 224, "count": 7})
+        check("%s/cache attribution: %s duplicate inference count" % (backend, phase),
+              result["usage"]["windows"], 2 if phase == "coalesced" else 0)
 
 # Router.predict_long scans every window; Router.predict reads one. They must not share an entry.
 cache = DecisionCache()

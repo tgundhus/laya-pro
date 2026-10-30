@@ -42,6 +42,8 @@ env var                    meaning                                        defaul
 ``LAYA_CACHE_MAXSIZE``     maximum decisions in the built-in store        10000
 ``LAYA_CACHE_RENEW_ON_HIT`` renew retention when a decision is replayed    0
 ``LAYA_API_KEY``           if set, require ``Authorization: Bearer <it>``  (none)
+                           on every route, and do not serve the
+                           interactive docs or the OpenAPI schema
 ``LAYA_ROOT_PATH``         public URL prefix behind a reverse proxy        (none)
 ``LAYA_LOG_LEVEL``         uvicorn log level                              info
 ``LAYA_MAX_CONCURRENT``    cap on requests past auth at once; excess      16
@@ -53,6 +55,9 @@ env var                    meaning                                        defaul
                            explicit ``model=`` like a built-in.
 ``LAYA_MAX_TOKEN_BUDGET``  cap on per-request max_len / head_max_len       8192
 ``LAYA_MAX_BATCH_TOKENS``  cap on batch forward tokens (states x q x len)  131072
+``LAYA_BODY_READ_TIMEOUT`` seconds a request may spend delivering its body   10
+                           before the server answers 408 and releases its
+                           admission slot (see below)
 ``LAYA_JEV_STRICT``        if set, serve the strict Jev wire contract: no   0
                            root `routing`, no per-answer `action` /
                            `answer_confidence`, no `confidence` on noul
@@ -60,8 +65,8 @@ env var                    meaning                                        defaul
                            `input_tokens` + `output_tokens`
 ``LAYA_TOURNAMENT_GROUP``  answer a choice with more options than this   0 (off)
                            by elimination in groups of this size, on
-                           ``/v1/systemone``; raises its option cap from
-                           100 to 255 (#302)
+                           both decision routes; raises their option
+                           cap from 100 to 255 (#302)
 =========================  ============================================  =========
 
 ``LAYA_DEVICE`` is a preference, not a guarantee: an ``Agent`` that asks for a
@@ -96,6 +101,17 @@ MAX_QUESTIONS = 64
 MAX_STATE_CHARS = 50000
 MAX_BATCH_STATES = 64
 MAX_BODY_BYTES = 2 * 1024 * 1024
+# How long a request may take to deliver its body. Admission is taken BEFORE the body is read --
+# that ordering is deliberate, it is what bounds how many bodies are buffered at once -- but it also
+# means a client that sends a request head and one partial body chunk and then goes quiet holds one
+# of the `LAYA_MAX_CONCURRENT` slots for as long as the socket stays open. There is no deadline at
+# any other layer: uvicorn has no request-body timeout, and `async for chunk in request.stream()`
+# waits as long as the peer does. So without the bound below, `LAYA_MAX_CONCURRENT` stalled uploads
+# (16 by default, a few bytes each) keep BOTH decision routes answering 503 for as long as the
+# attacker keeps the sockets open, while `/health` -- which takes no admission slot -- keeps telling
+# the orchestrator the process is healthy, so nothing ever restarts it. Bounding the read turns an
+# indefinitely held slot into a slot held for at most this long, and releases it either way.
+DEFAULT_BODY_READ_TIMEOUT = 10.0
 # `/v1/systemone/batch` collates `states x questions` rows into ONE tensor, and each of the caps
 # above bounds only one factor: 64 states of 64 questions is 4096 rows from a 4.1 KB body, with every
 # documented limit satisfied, and `batch_size` defaults to `None`, which `predict_batch` documents as
@@ -140,6 +156,10 @@ MAX_TOTAL_OPTIONS = 512
 # before inference, so without a bound many concurrent near-cap requests OOM
 # the worker even though every request is individually valid (#330).
 DEFAULT_MAX_CONCURRENT = 16
+
+# The bind port a `LAYA_PORT` with no value in it asks for -- the default `README.md`,
+# `docs/http-api.md` and this module's own environment table all print as `8000`.
+DEFAULT_PORT = 8000
 
 # What `GET /health` answers an unauthenticated caller when `LAYA_API_KEY` is set. Liveness is
 # the half of that endpoint a container probe needs and the half the page promises is always
@@ -186,8 +206,19 @@ BATCH_BODY_OUT_PARAMETERS = ("diagnostics",)
 
 
 def _env_bool(name: str, default: bool) -> bool:
+    """A `LAYA_*` switch. An unset or blank value means `default`; only the four spellings turn it on.
+
+    Blank is not false here because blank is what a `.env` line, a Compose `KEY=` with nothing
+    after it, and a CI matrix write when a variable is declared and left for the operator to fill
+    in, and most other readers of this family already read it that way -- `mcp.device.env_device`
+    returns None for it, `mcp.remote._timeout_from_env` returns its default, and the numeric and
+    name resolvers below strip and fall back too. `LAYA_PRELOAD=` is the case that costs something:
+    `docs/cli-mcp.md` names `0` as how to ask for lazy loading, a declared-but-unfilled
+    `LAYA_PRELOAD=` gets it anyway, and `laya_status` then echoes the blank back as
+    `preload: false`.
+    """
     v = os.environ.get(name)
-    if v is None:
+    if v is None or not v.strip():
         return default
     return v.strip().lower() in ("1", "true", "yes", "on")
 
@@ -252,11 +283,17 @@ def _tournament_eligible(questions: Any, group: int) -> bool:
     if not group or not isinstance(questions, dict):
         return False
     large = []
-    for question in questions.values():
+    for qid, question in questions.items():
         if not isinstance(question, dict) or question.get("type") != "choice":
             continue
         criteria = question.get("criteria")
         if isinstance(criteria, (dict, list)) and len(criteria) > group:
+            from fastapi import HTTPException
+            from .shortlist import _criteria_items
+            try:
+                _criteria_items(criteria)
+            except (TypeError, ValueError) as error:
+                raise HTTPException(status_code=422, detail="question %r: %s" % (qid, error)) from None
             large.append(question)
     return bool(large) and all(question.get("option_order") is None
                                and all(isinstance(label, str) for label in question["criteria"])
@@ -421,6 +458,18 @@ def _resolve_max_concurrent() -> int:
     except ValueError:
         return DEFAULT_MAX_CONCURRENT
     return n if n > 0 else DEFAULT_MAX_CONCURRENT
+
+
+def _resolve_body_read_timeout() -> float:
+    """Seconds a request may spend delivering its body, from LAYA_BODY_READ_TIMEOUT."""
+    raw = os.environ.get("LAYA_BODY_READ_TIMEOUT")
+    if not raw or not raw.strip():
+        return DEFAULT_BODY_READ_TIMEOUT
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_BODY_READ_TIMEOUT
+    return value if 0.0 < value < float("inf") else DEFAULT_BODY_READ_TIMEOUT
 
 
 def _resolve_tournament_group() -> int:
@@ -693,6 +742,15 @@ def _extra_models_option() -> Dict[str, Any]:
     out = {}
     for name, source in data.items():
         if isinstance(source, list):
+            # `[]`, a third element and a number are all lists, so they reached the Router and became
+            # `ValueError: not enough values to unpack` on the first request that routed to them (or a
+            # repo id like `acme/5`), long after the operator was told the value parsed. This option
+            # is the one place that still knows the name and can refuse the startup.
+            if (not 1 <= len(source) <= 2
+                    or not all(part is None or isinstance(part, str) for part in source)
+                    or not any(isinstance(part, str) for part in source)):
+                raise SystemExit("invalid LAYA_EXTRA_MODELS: source for %r must be a repo "
+                                 "id, a local path, or a [repo, subfolder] pair; got %r" % (name, source))
             out[name] = tuple(source)          # JSON has no tuple: [repo, subfolder]
         elif isinstance(source, str):
             out[name] = source
@@ -739,8 +797,21 @@ def _default_model_option(extra_models: Optional[Dict[str, Any]] = None) -> Dict
 
 
 def _resolve_port() -> int:
-    """Port from LAYA_PORT, validated. Exits with a message instead of a traceback."""
-    raw = os.environ.get("LAYA_PORT", "8000")
+    """Port from LAYA_PORT, validated. Exits with a message instead of a traceback.
+
+    Unset and blank both mean the documented default. `LAYA_PORT=` is what a `.env` line with the
+    value left for the operator to fill in reads as, and a value that carries no number cannot be
+    contradicted by falling back -- unlike `LAYA_PORT=99999`, where answering 8000 would bind the
+    server somewhere its operator did not ask for. The rest of this family already reads blank as
+    unset: `_env_bool`, `_default_model_option`, `_resolve_max_concurrent` and the other numeric
+    resolvers here, and `laya.mcp.server`'s base URL, whose documentation says "Blank or unset means
+    the default." `int()` ignores the whitespace around `" 8000 "`, so a value made of nothing
+    *but* that whitespace was fatal while its content was not. A port that names a number and the
+    wrong one still exits loudly, because a server bound to the wrong port is simply unreachable.
+    """
+    raw = os.environ.get("LAYA_PORT")
+    if raw is None or not raw.strip():
+        return DEFAULT_PORT
     try:
         port = int(str(raw).strip())
     except (TypeError, ValueError):
@@ -748,6 +819,33 @@ def _resolve_port() -> int:
     if not 1 <= port <= 65535:
         raise SystemExit("invalid LAYA_PORT %r: must be an integer 1-65535" % (raw,))
     return port
+
+
+#: What `LAYA_LOG_LEVEL` answers when it is unset or blank: uvicorn's own default. Named so the read
+#: and the blank guard state it once -- a second copy is a second thing to keep in step.
+DEFAULT_LOG_LEVEL = "info"
+
+
+def _resolve_log_level() -> str:
+    """Log level from LAYA_LOG_LEVEL, validated. Exits with a message instead of a traceback.
+
+    The accepted names are uvicorn's own ``LOG_LEVELS``, not a list restated here, so the two cannot
+    drift. uvicorn lowercases the value but does not strip it, so both a typo and a value copied out
+    of a ``.env`` with padding reach ``LOG_LEVELS[...]`` and die inside ``Config.configure_logging``
+    with a bare ``KeyError`` naming the value -- a traceback that reads as a uvicorn bug, from the
+    one variable whose sibling in this file promises a message. A blank value is "not specified",
+    which is how the rest of the family reads it, and takes the documented default.
+    """
+    raw = os.environ.get("LAYA_LOG_LEVEL", DEFAULT_LOG_LEVEL)
+    level = raw.strip().lower()
+    if not level:
+        return DEFAULT_LOG_LEVEL
+    from uvicorn.config import LOG_LEVELS
+
+    if level not in LOG_LEVELS:
+        raise SystemExit("invalid LAYA_LOG_LEVEL %r: must be one of %s"
+                         % (raw.strip(), ", ".join(sorted(LOG_LEVELS))))
+    return level
 
 
 #: Values the walk in `_state_length_lower_bound_over` will examine before giving up. This bounds the
@@ -948,7 +1046,7 @@ def _batch_chunk_size(n_states: int, n_questions: int, max_len: Any = None) -> O
     return max(1, min(n_states, rows_per_pass // n_questions))
 
 
-def _check_batch_limits(states: Any, questions: Any) -> None:
+def _check_batch_limits(states: Any, questions: Any, max_choice_options: int = MAX_CHOICE_OPTIONS) -> None:
     """Validate batch states and questions before inference (400/413)."""
     from fastapi import HTTPException
 
@@ -960,7 +1058,7 @@ def _check_batch_limits(states: Any, questions: Any) -> None:
             detail="too many states in batch (%d > %d)" % (len(states), MAX_BATCH_STATES),
         )
     for state in states:
-        _check_request_limits(state, questions)
+        _check_request_limits(state, questions, max_choice_options)
 # One surrogate code point in a Python string. Compiled once: a nested body can hold many
 # strings, and `re.search` scans each at C speed, where the per-character Python loop this
 # replaced cost ~170 ms on a near-cap body on the event loop.
@@ -998,7 +1096,7 @@ def _has_lone_surrogate(value: Any) -> bool:
     return False
 
 
-async def _read_body_capped(request: Any) -> bytes:
+async def _read_body_capped(request: Any, timeout: Optional[float] = None) -> bytes:
     """Read the request body, refusing to buffer more than ``MAX_BODY_BYTES``.
 
     ``Content-Length`` cannot be the only gate. It is a value the client chooses,
@@ -1007,24 +1105,48 @@ async def _read_body_capped(request: Any) -> bytes:
     read into memory in full, whatever its size. The body is streamed here and
     abandoned as soon as it exceeds the cap, so the limit holds for every framing
     rather than only for clients that announce their length honestly.
+
+    The read is also bounded in TIME (``LAYA_BODY_READ_TIMEOUT``, 10 s), because the
+    admission slot is taken before this runs: a peer that sends a request head and
+    then stops writing would otherwise hold one of the ``LAYA_MAX_CONCURRENT`` slots
+    for as long as it keeps the socket open. Nothing below the application layer
+    bounds that -- uvicorn has no request-body timeout -- so without this a handful
+    of idle sockets take the whole decision API out of service while ``/health``,
+    which takes no slot, still reports the process as healthy. A body that does not
+    arrive in time answers ``408`` and the slot is released by the unwinding
+    ``async with _admit()``, exactly as a ``413`` already was.
     """
+    import asyncio
+
     from fastapi import HTTPException
 
-    total = 0
-    chunks = []
-    async for chunk in request.stream():
-        if not chunk:
-            continue
-        total += len(chunk)
-        if total > MAX_BODY_BYTES:
-            # Stop reading rather than draining the rest: the peer is already over
-            # the limit and nothing further can make the request acceptable.
-            raise HTTPException(status_code=413, detail="request body too large")
-        chunks.append(chunk)
-    return b"".join(chunks)
+    async def collect() -> bytes:
+        total = 0
+        chunks = []
+        async for chunk in request.stream():
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > MAX_BODY_BYTES:
+                # Stop reading rather than draining the rest: the peer is already over
+                # the limit and nothing further can make the request acceptable.
+                raise HTTPException(status_code=413, detail="request body too large")
+            chunks.append(chunk)
+        return b"".join(chunks)
+
+    try:
+        return await asyncio.wait_for(
+            collect(), timeout=_resolve_body_read_timeout() if timeout is None else timeout)
+    except asyncio.TimeoutError:
+        # Cancelling `collect()` cancels the stream read, so the peer's socket is not
+        # left half-consumed; the response below is what it sees.
+        raise HTTPException(
+            status_code=408,
+            detail="request body was not received in time",
+        ) from None
 
 
-async def _read_json_body(request: Any) -> Any:
+async def _read_json_body(request: Any, timeout: Optional[float] = None) -> Any:
     """Read the request body and decode JSON, enforcing size caps and parse error guards."""
     from fastapi import HTTPException
 
@@ -1034,7 +1156,7 @@ async def _read_json_body(request: Any) -> Any:
                 raise HTTPException(status_code=413, detail="request body too large")
         except ValueError:
             pass
-    raw = await _read_body_capped(request)
+    raw = await _read_body_capped(request, timeout)
     try:
         return json.loads(raw)
     except (ValueError, RecursionError):
@@ -1186,6 +1308,7 @@ def create_app(router: Optional[Any] = None):
     # gate is still joined only after the body is complete, so a slow client
     # holds an admission slot but never an inference slot.
     max_concurrent = _resolve_max_concurrent()
+    body_read_timeout = _resolve_body_read_timeout()
     admission: Optional[asyncio.Semaphore] = None
 
     idle_unload_seconds = _resolve_idle_unload_seconds()
@@ -1254,11 +1377,20 @@ def create_app(router: Optional[Any] = None):
             if owns_router:
                 _close_decision_cache(router)
 
+    # Auth is enforced per route below, and FastAPI's own documentation routes are not written by
+    # this module -- on a deployment with LAYA_API_KEY set they answered 200 to an unauthenticated
+    # caller, publishing the whole API shape and an interactive console next to a service the
+    # operator had locked down. When a key is configured there is no way to authenticate them
+    # without adding a second auth path, so they are not served at all; run the server without a
+    # key (or read docs/http-api.md) when you need the schema.
     app = FastAPI(
         title="Laya-Pro local decision server",
         summary="Local decisions with cache retention over the Jev-compatible /v1/systemone protocol",
         root_path=os.environ.get("LAYA_ROOT_PATH", ""),
         lifespan=lifespan,
+        docs_url=None if api_key else "/docs",
+        redoc_url=None if api_key else "/redoc",
+        openapi_url=None if api_key else "/openapi.json",
     )
 
     # Compared as bytes, not str. `hmac.compare_digest` raises TypeError when a str
@@ -1357,7 +1489,7 @@ def create_app(router: Optional[Any] = None):
     async def _systemone_inner(request: Request):
         nonlocal gate
         _mark_request()
-        body = await _read_json_body(request)
+        body = await _read_json_body(request, body_read_timeout)
         if not isinstance(body, dict) or "questions" not in body:
             raise HTTPException(status_code=400, detail="request body must be an object with a 'questions' field")
         state = body.get("state")
@@ -1454,7 +1586,7 @@ def create_app(router: Optional[Any] = None):
     async def _systemone_batch_inner(request: Request):
         nonlocal gate
         _mark_request()
-        body = await _read_json_body(request)
+        body = await _read_json_body(request, body_read_timeout)
         if not isinstance(body, dict) or "questions" not in body or "states" not in body:
             raise HTTPException(
                 status_code=400,
@@ -1462,7 +1594,8 @@ def create_app(router: Optional[Any] = None):
             )
         states = body["states"]
         questions = body["questions"]
-        _check_batch_limits(states, questions)
+        _check_batch_limits(states, questions, MAX_TOURNAMENT_CHOICE_OPTIONS
+                            if _tournament_eligible(questions, tournament_group) else MAX_CHOICE_OPTIONS)
         # Same refusal policy as the single endpoint: hooks and the two hook-execution knobs
         # belong to the deployment, not the caller. `predict_batch` does take `hooks_timeout`,
         # so without this call a batch body would silently hand a caller a shorter deadline for
@@ -1511,17 +1644,19 @@ def create_app(router: Optional[Any] = None):
         if min_confidence is not None:
             call_kwargs["min_confidence"] = min_confidence
         batch_size = _validate_batch_size_param(body)
+        # The token budget is a property of ONE forward pass, so the caller may shape the passes but
+        # never widen one past the budget: a body is capped at 64 states x 64 questions x 8192 tokens,
+        # and a caller-supplied `batch_size` used to be forwarded verbatim, so `batch_size=10**18`
+        # meant "collate all of it at once" and opted out of the only guard that bounds a pass. Take
+        # the smaller of the two. `planned` is `None` when the request already fits, which is the
+        # case where nothing was going to be passed anyway.
+        planned = _batch_chunk_size(
+            len(states), len(questions) if isinstance(questions, dict) else 0,
+            body.get("max_len"))
         if batch_size is not None:
-            call_kwargs["batch_size"] = batch_size
-        else:
-            # The caller's own `batch_size` always wins -- they asked for a shape. Otherwise split the
-            # batch so one forward pass stays inside the token budget. `None` when it already fits, so
-            # nothing is passed and the call is the one it has always been.
-            planned = _batch_chunk_size(
-                len(states), len(questions) if isinstance(questions, dict) else 0,
-                body.get("max_len"))
-            if planned is not None:
-                call_kwargs["batch_size"] = planned
+            call_kwargs["batch_size"] = batch_size if planned is None else min(batch_size, planned)
+        elif planned is not None:
+            call_kwargs["batch_size"] = planned
         sort_by_length = _validate_sort_by_length_param(body)
         if sort_by_length:
             # Only `True` is forwarded: `predict_batch`'s own default is `False`, and an attached
@@ -1540,7 +1675,14 @@ def create_app(router: Optional[Any] = None):
                 loop = asyncio.get_running_loop()
 
                 def _do_batch():
-                    if hasattr(router, "predict_batch"):
+                    # A batch shares one question set, so whether it is narrowed is decided once.
+                    # Narrowing runs its rounds per state, so `batch_size` and `sort_by_length`,
+                    # which shape one batched pass, have nothing to apply to on that path.
+                    if tournament_group and _tournament_eligible(questions, tournament_group):
+                        results = [_predict_with_tournament(router, s, questions, tournament_group,
+                                                            model=model, **predict_kwargs)
+                                   for s in states]
+                    elif hasattr(router, "predict_batch"):
                         reqs = [dict(state=s, questions=questions, model=model, **item_overrides)
                                 for s in states]
                         results = router.predict_batch(reqs, **call_kwargs)
@@ -1604,7 +1746,7 @@ def main() -> None:
         create_app(),
         host=os.environ.get("LAYA_HOST", "0.0.0.0"),
         port=_resolve_port(),
-        log_level=os.environ.get("LAYA_LOG_LEVEL", "info"),
+        log_level=_resolve_log_level(),
         http=NoDelayHTTPProtocol,
     )
 

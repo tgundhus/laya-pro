@@ -1725,6 +1725,58 @@ else:
     check_true("evaluate/direct runner refuses an explicit checkpoint", False)
 check("evaluate/refusal precedes inference", _eval_runner.calls, 1)
 
+from laya import lang as _lang_module  # noqa: E402
+from laya.common import temperature_rejected  # noqa: E402
+from laya.evals import questions_fingerprint  # noqa: E402
+from laya.integrations import AgnoRouteDecision, LayaAgnoGuardrail, LayaAgnoRouter  # noqa: E402
+from laya.integrations._guard import malformed as _malformed_decision  # noqa: E402
+from laya.integrations import (  # noqa: E402
+    LayaCrewRouter, LayaTaskGuard, LayaRouter, LayaGuardrail, LayaTriage, LayaEvaluator,
+    LayaDecision, LayaSingleSelector, LayaMultiSelector, LayaQueryRouter,
+)
+from laya.mcp.remote import RemoteRouter  # noqa: E402
+from laya.mcp.tools import laya_predict_long, laya_route, laya_route_batch, laya_tournament  # noqa: E402
+
+for label, function in (("Router.route", Router.route), ("Router.route_batch", Router.route_batch),
+                         ("lang.analyse", _lang_module.analyse), ("laya_route", laya_route),
+                         ("laya_route_batch", laya_route_batch)):
+    check_param(label, function, "explain", False, inspect.Parameter.KEYWORD_ONLY)
+check_param("RemoteRouter", RemoteRouter.__init__, "user_agent", None, inspect.Parameter.KEYWORD_ONLY)
+check_param("laya_tournament", laya_tournament, "group_size", 16)
+for label, function in (("laya_predict_long", laya_predict_long), ("laya_tournament", laya_tournament)):
+    check_param(label, function, "model", "auto")
+for cls in (LayaAgnoRouter, LayaAgnoGuardrail):
+    for control in ("task", "lang_guess", "hooks", "min_confidence"):
+        check_param(cls.__name__, cls.__init__, control, None)
+check_true("AgnoRouteDecision is a typed result", dataclasses.is_dataclass(AgnoRouteDecision))
+_malformed_error = _malformed_decision("test", "invalid choice")
+check_true("adapter validation keeps ValueError compatibility", isinstance(_malformed_error, ValueError))
+check_true("malformed remote responses remain RuntimeError", isinstance(_malformed_error, RuntimeError))
+for cls in (LayaCrewRouter, LayaTaskGuard, LayaRouter, LayaGuardrail, LayaTriage, LayaEvaluator,
+            LayaDecision, LayaSingleSelector, LayaMultiSelector, LayaQueryRouter):
+    for control in ("task", "lang_guess"):
+        check_param(cls.__name__, cls.__init__, control, None, inspect.Parameter.KEYWORD_ONLY)
+    check_true(cls.__name__ + "/existing hooks retain positional compatibility",
+               sig(cls.__init__)["hooks"].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD)
+check_true("temperature_rejected rejects boolean calibration", temperature_rejected(True, 1.0))
+
+_diagnostic_router = Router()
+_ordinary = _diagnostic_router.route("Turn lights off")
+_diagnosed = _diagnostic_router.route("Turn lights off", explain=True)
+check_true("route diagnostics are opt-in", "diagnostic" not in _ordinary["detection"])
+check_true("route explain provides a diagnostic", isinstance(_diagnosed["detection"]["diagnostic"], dict))
+_diagnosed["detection"]["diagnostic"]["reason"] = "caller changed this"
+check_true("route diagnostics are isolated from later callers",
+           _diagnostic_router.route("Turn lights off", explain=True)["detection"]["diagnostic"]["reason"]
+           != "caller changed this")
+_fingerprints = []
+for order in (None, [0, 1], [1, 0]):
+    definition = dict(_eval_questions["q"])
+    if order is not None:
+        definition["option_order"] = order
+    _fingerprints.append(questions_fingerprint(Dataset([Example("hello", {"q": definition}, {"q": "a"})])))
+check("evaluation identity preserves option order", len(set(_fingerprints)), 3)
+
 print("\n%d passed, %d failed" % (len(PASS), len(FAIL)))
 for f in FAIL:
     print("  FAIL", f)

@@ -1,0 +1,1046 @@
+{
+  "baseline": "55efeaa87ea10c334eefd0f7b5ac5fc84a1772ad",
+  "candidate_source_sha256": {
+    "laya/agent.py": "938f75fd23ec8e09251dc5231e903e8544ee664722f624955924c1baf03058f9",
+    "laya/common.py": "8ac019871bb1fe900d3d31922a2e038ab8384506ee3258e68c796fbd726a2487",
+    "laya/onnx_agent.py": "063e27dd96c0312048e556e876b8e08cbd52809a9970fcc39bc85d629fc21e84"
+  },
+  "environment": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "torch": "2.14.1+cpu",
+    "numpy": "2.5.3",
+    "torch_threads": 2,
+    "interop_threads": 1,
+    "omp_threads": "2",
+    "mkl_threads": "2"
+  },
+  "microbenchmarks": [
+    {
+      "name": "collate_1x64_k2_parallelFalse",
+      "loops_per_sample": 30,
+      "warmups": 3,
+      "before_median_ms": 0.037226666851590075,
+      "after_median_ms": 0.011336667618403832,
+      "before_mad_ms": 0.00166999719416102,
+      "after_mad_ms": 0.0003566655019919089,
+      "median_paired_saving_ms": 0.02649999999751647,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 0.03906666534021497,
+          "after": 0.011639999380956093
+        },
+        {
+          "after": 0.010720000136643648,
+          "before": 0.037280000591029726
+        },
+        {
+          "before": 0.03579999708260099,
+          "after": 0.01169333312039574
+        },
+        {
+          "after": 0.010726666854073605,
+          "before": 0.037226666851590075
+        },
+        {
+          "before": 0.03496333568667372,
+          "after": 0.011009998464335998
+        },
+        {
+          "after": 0.011336667618403832,
+          "before": 0.03821666662891706
+        },
+        {
+          "before": 0.03469333363076051,
+          "after": 0.011929997708648443
+        },
+        {
+          "after": 0.010920001659542322,
+          "before": 0.038896664045751095
+        },
+        {
+          "before": 0.0346800001959006,
+          "after": 0.011493335478007793
+        }
+      ],
+      "tensor_and_metadata_parity": true,
+      "python_peak_bytes": {
+        "before": 1767,
+        "after": 3370
+      },
+      "torch_tensor_factory_calls": {
+        "before": 5,
+        "after": 0
+      }
+    },
+    {
+      "name": "onnx_feeds_1x64_k2",
+      "loops_per_sample": 30,
+      "warmups": 3,
+      "before_median_ms": 0.04624000284820795,
+      "after_median_ms": 0.004373331709454457,
+      "before_mad_ms": 0.0010666631472607477,
+      "after_mad_ms": 0.00015666397909323403,
+      "median_paired_saving_ms": 0.0419566718240579,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 0.05296999976659814,
+          "after": 0.0047466640050212545
+        },
+        {
+          "after": 0.004243334600081046,
+          "before": 0.04424333261946837
+        },
+        {
+          "before": 0.050230002185950674,
+          "after": 0.004583333308498065
+        },
+        {
+          "after": 0.004283331024150054,
+          "before": 0.04624000284820795
+        },
+        {
+          "before": 0.0473066659954687,
+          "after": 0.004373331709454457
+        },
+        {
+          "after": 0.004216667730361223,
+          "before": 0.04657666431739926
+        },
+        {
+          "before": 0.04457333513225118,
+          "after": 0.004656667200227578
+        },
+        {
+          "after": 0.004296664459009965,
+          "before": 0.04617333567390839
+        },
+        {
+          "before": 0.04580333285654584,
+          "after": 0.004556666438778241
+        }
+      ],
+      "all_feeds_exactly_equal": true,
+      "python_peak_bytes": {
+        "before": 2592,
+        "after": 1778
+      },
+      "feed_storage_bytes": 1050,
+      "baseline_additional_torch_feed_storage_bytes": 1050
+    },
+    {
+      "name": "collate_48x256_k11_parallelFalse",
+      "loops_per_sample": 30,
+      "warmups": 3,
+      "before_median_ms": 1.9155099987983704,
+      "after_median_ms": 0.2670666668564081,
+      "before_mad_ms": 0.031066670392950302,
+      "after_mad_ms": 0.001479999627918005,
+      "median_paired_saving_ms": 1.6484433319419622,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 1.8751300017659862,
+          "after": 0.265949999447912
+        },
+        {
+          "after": 0.2688033312248687,
+          "before": 1.931449999877562
+        },
+        {
+          "before": 1.9584933334651093,
+          "after": 0.2683566650375724
+        },
+        {
+          "after": 0.26436999905854464,
+          "before": 1.9620900003549953
+        },
+        {
+          "before": 1.9155099987983704,
+          "after": 0.2670666668564081
+        },
+        {
+          "after": 0.26400666683912277,
+          "before": 1.911289997709294
+        },
+        {
+          "before": 1.9088766692827146,
+          "after": 0.2675033329675595
+        },
+        {
+          "after": 0.2612766654541095,
+          "before": 1.8561866638871531
+        },
+        {
+          "before": 1.9465766691913207,
+          "after": 0.2685466664843261
+        }
+      ],
+      "tensor_and_metadata_parity": true,
+      "python_peak_bytes": {
+        "before": 2535,
+        "after": 207312
+      },
+      "torch_tensor_factory_calls": {
+        "before": 146,
+        "after": 0
+      }
+    },
+    {
+      "name": "onnx_feeds_48x256_k11",
+      "loops_per_sample": 30,
+      "warmups": 3,
+      "before_median_ms": 1.8939800017202895,
+      "after_median_ms": 0.22959333145990968,
+      "before_mad_ms": 0.005949998740106821,
+      "after_mad_ms": 0.001699997422595828,
+      "median_paired_saving_ms": 1.6641966649331152,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 2.001850000427415,
+          "after": 0.22959333145990968
+        },
+        {
+          "after": 0.22991333389654756,
+          "before": 1.8939800017202895
+        },
+        {
+          "before": 1.9194566683533292,
+          "after": 0.2387766648704807
+        },
+        {
+          "after": 0.2332000023064514,
+          "before": 1.8912399963786204
+        },
+        {
+          "before": 1.8999300004603963,
+          "after": 0.22997666771213213
+        },
+        {
+          "after": 0.2278233335042993,
+          "before": 1.8964733307560284
+        },
+        {
+          "before": 1.8754600003982584,
+          "after": 0.22629000013694167
+        },
+        {
+          "after": 0.22789333403731385,
+          "before": 1.8920899989704292
+        },
+        {
+          "before": 1.8582033342681825,
+          "after": 0.22913666907697916
+        }
+      ],
+      "all_feeds_exactly_equal": true,
+      "python_peak_bytes": {
+        "before": 203786,
+        "after": 203056
+      },
+      "feed_storage_bytes": 201744,
+      "baseline_additional_torch_feed_storage_bytes": 201744
+    },
+    {
+      "name": "collate_24x768_k64_parallelTrue",
+      "loops_per_sample": 30,
+      "warmups": 3,
+      "before_median_ms": 4.528186664295693,
+      "after_median_ms": 0.8732400019653141,
+      "before_mad_ms": 0.008089995632568403,
+      "after_mad_ms": 0.006153333621720436,
+      "median_paired_saving_ms": 3.6558866733685136,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 4.538953331454347,
+          "after": 0.8732400019653141
+        },
+        {
+          "after": 0.8779266693939766,
+          "before": 4.5284066659708815
+        },
+        {
+          "before": 4.528186664295693,
+          "after": 0.865063335125645
+        },
+        {
+          "after": 0.8764533326029778,
+          "before": 4.522396666773905
+        },
+        {
+          "before": 4.547793336678296,
+          "after": 0.8919066633097827
+        },
+        {
+          "after": 0.8483899990096688,
+          "before": 4.512153333052993
+        },
+        {
+          "before": 4.5200966686631245,
+          "after": 0.8795066659028331
+        },
+        {
+          "after": 0.8674100002584358,
+          "before": 4.6418766646335525
+        },
+        {
+          "before": 4.522619997927298,
+          "after": 0.8670866683435937
+        }
+      ],
+      "tensor_and_metadata_parity": true,
+      "python_peak_bytes": {
+        "before": 2500,
+        "after": 612856
+      },
+      "torch_tensor_factory_calls": {
+        "before": 122,
+        "after": 0
+      }
+    },
+    {
+      "name": "confidence_k2",
+      "loops_per_sample": 1000,
+      "warmups": 3,
+      "before_median_ms": 0.007316699950024486,
+      "after_median_ms": 0.0032542000990360975,
+      "before_mad_ms": 7.289997301995754e-05,
+      "after_mad_ms": 2.180004958063364e-05,
+      "median_paired_saving_ms": 0.004072299925610423,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 0.007267399923875928,
+          "after": 0.003257500007748604
+        },
+        {
+          "after": 0.0032444000244140625,
+          "before": 0.007316699950024486
+        },
+        {
+          "before": 0.007243799977004528,
+          "after": 0.0032459000358358026
+        },
+        {
+          "after": 0.0032248999923467636,
+          "before": 0.007588600041344762
+        },
+        {
+          "before": 0.007255899952724576,
+          "after": 0.003337400034070015
+        },
+        {
+          "after": 0.0034631999442353845,
+          "before": 0.007287199958227575
+        },
+        {
+          "before": 0.00743320002220571,
+          "after": 0.003232400049455464
+        },
+        {
+          "after": 0.0032542000990360975,
+          "before": 0.007447999902069569
+        },
+        {
+          "before": 0.007507800008170307,
+          "after": 0.0033013999927788973
+        }
+      ],
+      "exact_scalar_parity_cases_total": 4000
+    },
+    {
+      "name": "confidence_k11",
+      "loops_per_sample": 1000,
+      "warmups": 3,
+      "before_median_ms": 0.007391299935989082,
+      "after_median_ms": 0.00333360000513494,
+      "before_mad_ms": 7.079984061419964e-05,
+      "after_mad_ms": 5.389994475990534e-05,
+      "median_paired_saving_ms": 0.004103599931113422,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 0.007391299935989082,
+          "after": 0.00328770000487566
+        },
+        {
+          "after": 0.003279700060375035,
+          "before": 0.007549999980255961
+        },
+        {
+          "before": 0.007374899927526712,
+          "after": 0.003458900027908385
+        },
+        {
+          "after": 0.0033518000273033977,
+          "before": 0.007351499982178211
+        },
+        {
+          "before": 0.007706300006248057,
+          "after": 0.0035698000574484468
+        },
+        {
+          "after": 0.0033558999421074986,
+          "before": 0.007380200084298849
+        },
+        {
+          "before": 0.007320500095374882,
+          "after": 0.003273799899034202
+        },
+        {
+          "after": 0.003278600051999092,
+          "before": 0.007590699940919876
+        },
+        {
+          "before": 0.007554200012236834,
+          "after": 0.00333360000513494
+        }
+      ],
+      "exact_scalar_parity_cases_total": 4000
+    },
+    {
+      "name": "confidence_k64",
+      "loops_per_sample": 1000,
+      "warmups": 3,
+      "before_median_ms": 0.007575199939310551,
+      "after_median_ms": 0.0034833999816328287,
+      "before_mad_ms": 9.830005001276731e-05,
+      "after_mad_ms": 4.099996294826269e-05,
+      "median_paired_saving_ms": 0.0041099999798461795,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 0.007686099968850613,
+          "after": 0.003563900012522936
+        },
+        {
+          "after": 0.005851999972946942,
+          "before": 0.007575199939310551
+        },
+        {
+          "before": 0.007675000000745058,
+          "after": 0.0034833999816328287
+        },
+        {
+          "after": 0.003439699998125434,
+          "before": 0.007727000047452748
+        },
+        {
+          "before": 0.007464799913577735,
+          "after": 0.003517800010740757
+        },
+        {
+          "after": 0.0034635000629350543,
+          "before": 0.007520799990743399
+        },
+        {
+          "before": 0.007531699957326055,
+          "after": 0.003421699977479875
+        },
+        {
+          "after": 0.003442400018684566,
+          "before": 0.007673499989323318
+        },
+        {
+          "before": 0.007501999964006245,
+          "after": 0.003511300077661872
+        }
+      ],
+      "exact_scalar_parity_cases_total": 4000
+    },
+    {
+      "name": "confidence_k256",
+      "loops_per_sample": 1000,
+      "warmups": 3,
+      "before_median_ms": 0.008129300083965063,
+      "after_median_ms": 0.004090399947017431,
+      "before_mad_ms": 1.910002902150154e-05,
+      "after_mad_ms": 4.099996294826269e-05,
+      "median_paired_saving_ms": 0.00406120007392019,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 0.008129300083965063,
+          "after": 0.0040475999703630805
+        },
+        {
+          "after": 0.004059599945321679,
+          "before": 0.00812080001924187
+        },
+        {
+          "before": 0.008081200066953897,
+          "after": 0.004389099893160164
+        },
+        {
+          "after": 0.004043700057081878,
+          "before": 0.008310399949550629
+        },
+        {
+          "before": 0.008264000061899424,
+          "after": 0.004131399909965694
+        },
+        {
+          "after": 0.00409509998280555,
+          "before": 0.008137600030750036
+        },
+        {
+          "before": 0.008470000000670552,
+          "after": 0.0040466999635100365
+        },
+        {
+          "after": 0.004113700008019805,
+          "before": 0.008110200054943562
+        },
+        {
+          "before": 0.008119400008581579,
+          "after": 0.004090399947017431
+        }
+      ],
+      "exact_scalar_parity_cases_total": 4000
+    },
+    {
+      "name": "encode_state_real_tokenizer_structured_criteria",
+      "loops_per_sample": 100,
+      "warmups": 3,
+      "before_median_ms": 0.06364600034430623,
+      "after_median_ms": 0.05674400017596781,
+      "before_mad_ms": 0.0013370008673518896,
+      "after_mad_ms": 0.0009169999975711107,
+      "median_paired_saving_ms": 0.008475999347865582,
+      "after_faster_pairs": 8,
+      "pairs_ms": [
+        {
+          "before": 0.06230899947695434,
+          "after": 0.05383300012908876
+        },
+        {
+          "after": 0.05360599956475198,
+          "before": 0.062352000968530774
+        },
+        {
+          "before": 0.06722299964167178,
+          "after": 0.0558270001783967
+        },
+        {
+          "after": 0.057258999440819025,
+          "before": 0.06297199986875057
+        },
+        {
+          "before": 0.07521099993027747,
+          "after": 0.05726699950173497
+        },
+        {
+          "after": 0.05674400017596781,
+          "before": 0.07287499960511923
+        },
+        {
+          "before": 0.06364600034430623,
+          "after": 0.057555000530555844
+        },
+        {
+          "after": 0.09758699918165803,
+          "before": 0.08827200043015182
+        },
+        {
+          "before": 0.0626109994482249,
+          "after": 0.05582400015555322
+        }
+      ]
+    },
+    {
+      "name": "proposed_onnx_token_reuse_64states_warm_heads",
+      "loops_per_sample": 10,
+      "warmups": 3,
+      "before_median_ms": 3.5150500014424324,
+      "after_median_ms": 3.44690999481827,
+      "before_mad_ms": 0.08815999608486891,
+      "after_mad_ms": 0.06160000339150429,
+      "median_paired_saving_ms": 0.06154001457616687,
+      "after_faster_pairs": 5,
+      "pairs_ms": [
+        {
+          "before": 3.5601100069470704,
+          "after": 3.4985699923709035
+        },
+        {
+          "after": 3.43212999869138,
+          "before": 4.239760001655668
+        },
+        {
+          "before": 3.4268900053575635,
+          "after": 3.531579999253154
+        },
+        {
+          "after": 3.5856599919497967,
+          "before": 3.5805299994535744
+        },
+        {
+          "before": 3.338959999382496,
+          "after": 3.3488300046883523
+        },
+        {
+          "after": 3.44690999481827,
+          "before": 3.5150500014424324
+        },
+        {
+          "before": 3.324569994583726,
+          "after": 3.3504200051538646
+        },
+        {
+          "after": 3.3906099968589842,
+          "before": 3.465289995074272
+        },
+        {
+          "before": 3.7257399992085993,
+          "after": 3.5085099982097745
+        }
+      ],
+      "tokenizer_calls": {
+        "before": 64,
+        "after": 64
+      },
+      "encoded_rows_exact": true,
+      "disposition": "deferred: Pro's existing head cache already avoids repeated question tokenization"
+    },
+    {
+      "name": "proposed_onnx_token_reuse_64states_cold_heads",
+      "loops_per_sample": 10,
+      "warmups": 3,
+      "before_median_ms": 3.70073999511078,
+      "after_median_ms": 3.726360003929585,
+      "before_mad_ms": 0.049869995564222336,
+      "after_mad_ms": 0.12139999307692051,
+      "median_paired_saving_ms": -0.016789999790489674,
+      "after_faster_pairs": 3,
+      "pairs_ms": [
+        {
+          "before": 3.7615500041283667,
+          "after": 3.7783400039188564
+        },
+        {
+          "after": 3.6181499948725104,
+          "before": 3.5865599988028407
+        },
+        {
+          "before": 3.7444300018250942,
+          "after": 3.8477599970065057
+        },
+        {
+          "after": 3.726360003929585,
+          "before": 3.686260001268238
+        },
+        {
+          "before": 4.389949992764741,
+          "after": 4.062280000653118
+        },
+        {
+          "after": 3.587409993633628,
+          "before": 3.584940009750426
+        },
+        {
+          "before": 3.739720000885427,
+          "after": 3.894270001910627
+        },
+        {
+          "after": 3.648040001280606,
+          "before": 3.6508699995465577
+        },
+        {
+          "before": 3.70073999511078,
+          "after": 3.4774000057950616
+        }
+      ],
+      "tokenizer_calls": {
+        "before": 72,
+        "after": 72
+      },
+      "encoded_rows_exact": true,
+      "disposition": "deferred: Pro's existing head cache already avoids repeated question tokenization"
+    }
+  ],
+  "checkpoint": {
+    "path": "C:/Users/TGUNDHUS-PWR/.cache/huggingface/hub/models--convaiinnovations--laya/snapshots/55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+    "snapshot_revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+    "weights_size": 842609210,
+    "config_sha256": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd",
+    "dtype": "torch.float32",
+    "workloads": [
+      {
+        "name": "single_2_questions",
+        "workload": {
+          "states": [
+            "My account was charged twice and I need a refund."
+          ],
+          "max_len": 160,
+          "head_max_len": 96
+        },
+        "questions": {
+          "team": {
+            "type": "choice",
+            "instructions": "Which team should handle this request?",
+            "criteria": {
+              "billing": {
+                "reason": "payments and refunds"
+              },
+              "technical": {
+                "reason": "errors and outages"
+              },
+              "sales": {
+                "reason": "purchase and pricing"
+              },
+              "other": {
+                "reason": "other requests"
+              }
+            }
+          },
+          "urgent": {
+            "type": "noul",
+            "instructions": "Does the request require urgent action?"
+          }
+        },
+        "input_tensors_exact": true,
+        "logits_and_action_probabilities_exact": true,
+        "outputs_exact": true,
+        "logits_max_abs_difference": 0.0,
+        "action_probabilities_max_abs_difference": 0.0,
+        "reference_output": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "billing",
+              "probabilities": {
+                "billing": 0.9612,
+                "technical": 0.0107,
+                "sales": 0.0122,
+                "other": 0.0159
+              },
+              "confidence": 0.8512,
+              "answer_confidence": 0.9612,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.4176,
+              "confidence": 0.5824,
+              "answer_confidence": 0.5824,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 116,
+            "output_tokens": 0,
+            "state_tokens": 11,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        "loops_per_sample": 1,
+        "warmups": 2,
+        "before_median_ms": 416.81209998205304,
+        "after_median_ms": 417.85389999859035,
+        "before_mad_ms": 1.204199972562492,
+        "after_mad_ms": 5.020500044338405,
+        "median_paired_saving_ms": 1.3260000851005316,
+        "after_faster_pairs": 4,
+        "pairs_ms": [
+          {
+            "before": 418.01629995461553,
+            "after": 416.4067000383511
+          },
+          {
+            "after": 566.5300999535248,
+            "before": 416.81209998205304
+          },
+          {
+            "before": 413.8493000064045,
+            "after": 422.87440004292876
+          },
+          {
+            "after": 408.15439994912595,
+            "before": 417.4722000025213
+          },
+          {
+            "before": 416.5230999933556,
+            "after": 419.4531999528408
+          },
+          {
+            "after": 417.85389999859035,
+            "before": 437.6744000473991
+          },
+          {
+            "before": 410.8509999932721,
+            "after": 409.5249999081716
+          }
+        ]
+      },
+      {
+        "name": "batch4_2_questions",
+        "workload": {
+          "states": [
+            "My account was charged twice and I need a refund.",
+            "Our production service is unavailable. Please help urgently.",
+            "Please send a quote for twenty new licenses.",
+            "Thank you for your help."
+          ],
+          "batch_size": 4,
+          "max_len": 160,
+          "head_max_len": 96
+        },
+        "questions": {
+          "team": {
+            "type": "choice",
+            "instructions": "Which team should handle this request?",
+            "criteria": {
+              "billing": {
+                "reason": "payments and refunds"
+              },
+              "technical": {
+                "reason": "errors and outages"
+              },
+              "sales": {
+                "reason": "purchase and pricing"
+              },
+              "other": {
+                "reason": "other requests"
+              }
+            }
+          },
+          "urgent": {
+            "type": "noul",
+            "instructions": "Does the request require urgent action?"
+          }
+        },
+        "input_tensors_exact": true,
+        "logits_and_action_probabilities_exact": true,
+        "outputs_exact": true,
+        "logits_max_abs_difference": 0.0,
+        "action_probabilities_max_abs_difference": 0.0,
+        "reference_output": [
+          {
+            "model": "laya-rl-agent",
+            "answers": {
+              "team": {
+                "type": "choice",
+                "choice": "billing",
+                "probabilities": {
+                  "billing": 0.9612,
+                  "technical": 0.0107,
+                  "sales": 0.0122,
+                  "other": 0.0159
+                },
+                "confidence": 0.8512,
+                "answer_confidence": 0.9612,
+                "action": {
+                  "act_probability": 1.0
+                }
+              },
+              "urgent": {
+                "type": "noul",
+                "noul": 0.4176,
+                "confidence": 0.5824,
+                "answer_confidence": 0.5824,
+                "action": {
+                  "act_probability": 1.0
+                }
+              }
+            },
+            "usage": {
+              "input_tokens": 116,
+              "output_tokens": 0,
+              "state_tokens": 11,
+              "state_tokens_dropped": 0,
+              "truncated": false,
+              "truncated_questions": []
+            }
+          },
+          {
+            "model": "laya-rl-agent",
+            "answers": {
+              "team": {
+                "type": "choice",
+                "choice": "technical",
+                "probabilities": {
+                  "billing": 0.0261,
+                  "technical": 0.9076,
+                  "sales": 0.0203,
+                  "other": 0.046
+                },
+                "confidence": 0.7088,
+                "answer_confidence": 0.9076,
+                "action": {
+                  "act_probability": 1.0
+                }
+              },
+              "urgent": {
+                "type": "noul",
+                "noul": 0.9517,
+                "confidence": 0.9517,
+                "answer_confidence": 0.9517,
+                "action": {
+                  "act_probability": 1.0
+                }
+              }
+            },
+            "usage": {
+              "input_tokens": 114,
+              "output_tokens": 0,
+              "state_tokens": 10,
+              "state_tokens_dropped": 0,
+              "truncated": false,
+              "truncated_questions": []
+            }
+          },
+          {
+            "model": "laya-rl-agent",
+            "answers": {
+              "team": {
+                "type": "choice",
+                "choice": "sales",
+                "probabilities": {
+                  "billing": 0.1293,
+                  "technical": 0.0513,
+                  "sales": 0.7073,
+                  "other": 0.1121
+                },
+                "confidence": 0.3456,
+                "answer_confidence": 0.7073,
+                "action": {
+                  "act_probability": 1.0
+                }
+              },
+              "urgent": {
+                "type": "noul",
+                "noul": 0.2211,
+                "confidence": 0.7789,
+                "answer_confidence": 0.7789,
+                "action": {
+                  "act_probability": 1.0
+                }
+              }
+            },
+            "usage": {
+              "input_tokens": 112,
+              "output_tokens": 0,
+              "state_tokens": 9,
+              "state_tokens_dropped": 0,
+              "truncated": false,
+              "truncated_questions": []
+            }
+          },
+          {
+            "model": "laya-rl-agent",
+            "answers": {
+              "team": {
+                "type": "choice",
+                "choice": "other",
+                "probabilities": {
+                  "billing": 0.3133,
+                  "technical": 0.1602,
+                  "sales": 0.1419,
+                  "other": 0.3845
+                },
+                "confidence": 0.0611,
+                "answer_confidence": 0.3845,
+                "action": {
+                  "act_probability": 1.0
+                }
+              },
+              "urgent": {
+                "type": "noul",
+                "noul": 0.0384,
+                "confidence": 0.9616,
+                "answer_confidence": 0.9616,
+                "action": {
+                  "act_probability": 1.0
+                }
+              }
+            },
+            "usage": {
+              "input_tokens": 106,
+              "output_tokens": 0,
+              "state_tokens": 6,
+              "state_tokens_dropped": 0,
+              "truncated": false,
+              "truncated_questions": []
+            }
+          }
+        ],
+        "loops_per_sample": 1,
+        "warmups": 2,
+        "before_median_ms": 1822.0597000326961,
+        "after_median_ms": 1839.879099978134,
+        "before_mad_ms": 60.61069993302226,
+        "after_mad_ms": 89.98340007383376,
+        "median_paired_saving_ms": 72.16400012839586,
+        "after_faster_pairs": 4,
+        "pairs_ms": [
+          {
+            "before": 1882.2157999966294,
+            "after": 1755.0934000173584
+          },
+          {
+            "after": 1839.879099978134,
+            "before": 1967.2140999464318
+          },
+          {
+            "before": 1761.4490000996739,
+            "after": 1868.544900091365
+          },
+          {
+            "after": 2191.0572999622673,
+            "before": 1956.349299987778
+          },
+          {
+            "before": 1801.2777999974787,
+            "after": 1719.097499968484
+          },
+          {
+            "after": 2029.4091999530792,
+            "before": 1693.0714000482112
+          },
+          {
+            "before": 1822.0597000326961,
+            "after": 1749.8956999043003
+          }
+        ]
+      }
+    ],
+    "caveat": "choice:11+ temperature 0.1005828 is clamped to 0.5; parity is not accuracy/calibration evidence",
+    "weights_sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c"
+  },
+  "memory_note": "tracemalloc is Python-visible peak, not native Torch allocator or process RSS",
+  "post_measurement_nonfunctional_edits": [
+    "laya/common.py: ECE docstring only",
+    "laya/onnx_agent.py: predict_long docstring only"
+  ],
+  "final_review_source_sha256": {
+    "laya/agent.py": "674bf72c505eeafad2e1a1eb02c7e78e5ad3b36ee251d68c6721aec9be8bee35",
+    "laya/common.py": "ebdd39aa57cd3869561643c270cb0fb544a65d01050e9bf69dd0bef1c2ac9b46",
+    "laya/onnx_agent.py": "b45a6271fc26c61f7462752e5e694c35933c804b3bd59a0bc8422e83b2edf391",
+    "laya/consistency.py": "12d878604c995f8abf17273e61ea706c3d0bef9ca7c78c112b5481c7a907145f"
+  },
+  "seed": 29018,
+  "reproduction_harness_sha256": "26b741bb49e400f695e722a423ea01bfa3cfc9cf6336d5caa4cb668247412cbb",
+  "post_measurement_changes": [
+    {
+      "files": [
+        "laya/agent.py",
+        "laya/consistency.py",
+        "laya/onnx_agent.py"
+      ],
+      "scope": "Long-scan retained-answer provenance and its docstrings only. Benchmarked single/batch inference, collation and confidence functions are unchanged.",
+      "validation": "tests/test_consistency.py279; test_predict_long.py349; test_onnx_long.py112; test_hooks.py267, all passed."
+    }
+  ]
+}

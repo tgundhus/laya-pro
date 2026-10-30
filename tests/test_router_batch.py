@@ -714,3 +714,30 @@ def test_sort_diagnostics_invalid_shape_fails_before_routing(fake_agent, diagnos
                              hooks=[type("Record", (), {"on_route": lambda self, ctx: routed.append(ctx)})()])
     assert built == []
     assert routed == []
+
+
+def test_predict_batch_memoizes_only_consecutive_schema_references(monkeypatch):
+    import laya.router
+    calls = []
+    real_schema = laya.router._question_schema
+
+    def recording_schema(questions):
+        signature = real_schema(questions)
+        calls.append(signature)
+        return signature
+
+    monkeypatch.setattr(laya.router, "_question_schema", recording_schema)
+    router, _ = _sort_recording_router(monkeypatch, accepts_sort=True)
+    shared = {"intent": {"type": "noul", "instructions": "Urgent?"}}
+    other = {"intent": {"type": "noul", "instructions": "Different?"}}
+    items = [{"state": str(i), "questions": questions}
+             for i, questions in enumerate((shared, shared, shared, other, shared))]
+    assert len(router.predict_batch(items)) == 5
+    assert calls == [real_schema(shared), real_schema(other), real_schema(shared)]
+    # No schema or object is retained across calls, including mutations made by a start hook.
+    calls.clear()
+    def rewrite(ctx):
+        ctx.questions["intent"]["instructions"] = "Changed?"
+    router.predict_batch(items[:2], on_predict_start=rewrite)
+    assert calls == [real_schema(shared)]
+    assert "Changed?" in calls[0]

@@ -31,6 +31,7 @@ from .common import (
     collate_items,
     ece_score,
     temp_bucket,
+    temperature_rejected,
 )
 
 # Per-bucket floor. Below this, `temperature_by_options` omits the bucket.
@@ -586,11 +587,8 @@ def _rejected_temperatures(entries):
     """Names whose raw value is not the number `clamp_temperature` kept, matching checkpoint load."""
     rejected = []
     for name, raw, applied in entries:
-        try:
-            if float(raw) == applied:
-                continue
-        except (TypeError, ValueError):
-            pass
+        if not temperature_rejected(raw, applied):
+            continue
         rejected.append("%s=%r -> %g" % (name, raw, applied))
     return rejected
 

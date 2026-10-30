@@ -656,6 +656,29 @@ check(
     {"choice:2": TEMP_MIN, "noul:2": 1.0},
 )
 
+# A JSON `true` is not a temperature either -- `clamp_temperature` refuses a bool -- but this
+# payload loaded in silence, because `float(True)` is exactly the neutral 1.0 the clamp installs
+# for it and the diagnostic only compared the two numbers. `false` was reported for the wrong
+# reason: it floats to 0.0, so it mismatched. Both now name the entry.
+bool_payload = {**bad_payload, "temperature": [True, 1.2, 1.1],
+                "temperature_by_options": {"choice:2": False}}
+bool_agent = Agent.__new__(Agent)
+bool_agent.model_id_or_path = "convaiinnovations/laya"
+bool_agent.subfolder = None
+bool_agent.cfg = {"encoder": "answerdotai/ModernBERT-large"}
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter("always")
+    apply_calibration_payload(bool_agent, bool_payload)
+check("bool-load/temperature", bool_agent.temperature, [1.0, 1.2, 1.1])
+check("bool-load/by_options", bool_agent.temperature_by_options, {"choice:2": 1.0})
+check_true(
+    "bool-load/warns for both entries",
+    any(issubclass(w.category, RuntimeWarning)
+        and "temperature[0]=True -> 1" in str(w.message)
+        and "choice:2=False -> 1" in str(w.message) for w in caught),
+    [str(w.message) for w in caught],
+)
+
 
 # --------------------------------------------------------------- payload shape
 # The values above are tolerated and clamped; the *shape* is not negotiable, and the

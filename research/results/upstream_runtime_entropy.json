@@ -1,0 +1,251 @@
+{
+  "baseline": "55efeaa87ea10c334eefd0f7b5ac5fc84a1772ad",
+  "candidate_source_sha256": {
+    "laya/agent.py": "938f75fd23ec8e09251dc5231e903e8544ee664722f624955924c1baf03058f9",
+    "laya/common.py": "ebdd39aa57cd3869561643c270cb0fb544a65d01050e9bf69dd0bef1c2ac9b46",
+    "laya/onnx_agent.py": "85f20b1623e17b22e58795bca9e1b40af9090995612cc779bf2edcedb6ead897"
+  },
+  "environment": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "torch": "2.14.1+cpu",
+    "numpy": "2.5.3",
+    "torch_threads": 2,
+    "interop_threads": 1,
+    "omp_threads": "2",
+    "mkl_threads": "2"
+  },
+  "microbenchmarks": [
+    {
+      "name": "entropy_loop_vs_vectorized_k2",
+      "loops_per_sample": 1000,
+      "warmups": 3,
+      "before_median_ms": 0.0006280000088736415,
+      "after_median_ms": 0.0026455000042915344,
+      "before_mad_ms": 1.200009137392044e-06,
+      "after_mad_ms": 2.3700064048171043e-05,
+      "median_paired_saving_ms": -0.0020127998432144523,
+      "after_faster_pairs": 0,
+      "pairs_ms": [
+        {
+          "before": 0.0006267999997362494,
+          "after": 0.0026455000042915344
+        },
+        {
+          "after": 0.0026217999402433634,
+          "before": 0.0006260999944061041
+        },
+        {
+          "before": 0.0006267999997362494,
+          "after": 0.002620800049044192
+        },
+        {
+          "after": 0.002637599944137037,
+          "before": 0.0006273000035434961
+        },
+        {
+          "before": 0.0006284000119194388,
+          "after": 0.0026310000102967024
+        },
+        {
+          "after": 0.002650099922902882,
+          "before": 0.0006373000796884298
+        },
+        {
+          "before": 0.0006331999320536852,
+          "after": 0.0026798000326380134
+        },
+        {
+          "after": 0.0028113999869674444,
+          "before": 0.0006280000088736415
+        },
+        {
+          "before": 0.0006822999566793442,
+          "after": 0.0026996999513357878
+        }
+      ],
+      "before_source": "0a899ea3be19b7c1d4fcdb809f27712d4dfa1d03",
+      "after_source": "retained vectorized entropy and native scalar clamp",
+      "parity_distributions": 1000,
+      "loop_exact_mismatches": 0,
+      "loop_max_abs_difference": 0.0,
+      "rounded_4dp_mismatches": 0
+    },
+    {
+      "name": "entropy_loop_vs_vectorized_k11",
+      "loops_per_sample": 1000,
+      "warmups": 3,
+      "before_median_ms": 0.0014257999137043953,
+      "after_median_ms": 0.002811900107190013,
+      "before_mad_ms": 3.1700124964118004e-05,
+      "after_mad_ms": 2.3400061763823032e-05,
+      "median_paired_saving_ms": -0.0013742001028731465,
+      "after_faster_pairs": 0,
+      "pairs_ms": [
+        {
+          "before": 0.0014257999137043953,
+          "after": 0.002850400051102042
+        },
+        {
+          "after": 0.002826599986292422,
+          "before": 0.0014970999909564853
+        },
+        {
+          "before": 0.0014575000386685133,
+          "after": 0.002811900107190013
+        },
+        {
+          "after": 0.00278850004542619,
+          "before": 0.0014112000353634357
+        },
+        {
+          "before": 0.0014143999433144927,
+          "after": 0.0027886000461876392
+        },
+        {
+          "after": 0.0027589999372139573,
+          "before": 0.0014214999973773956
+        },
+        {
+          "before": 0.0013905999949201941,
+          "after": 0.0028179000364616513
+        },
+        {
+          "after": 0.0027393000200390816,
+          "before": 0.002217500004917383
+        },
+        {
+          "before": 0.0019044000655412674,
+          "after": 0.00496329995803535
+        }
+      ],
+      "before_source": "0a899ea3be19b7c1d4fcdb809f27712d4dfa1d03",
+      "after_source": "retained vectorized entropy and native scalar clamp",
+      "parity_distributions": 1000,
+      "loop_exact_mismatches": 239,
+      "loop_max_abs_difference": 4.440892098500626e-16,
+      "rounded_4dp_mismatches": 0
+    },
+    {
+      "name": "entropy_loop_vs_vectorized_k64",
+      "loops_per_sample": 1000,
+      "warmups": 3,
+      "before_median_ms": 0.0058253000024706125,
+      "after_median_ms": 0.0029371000127866864,
+      "before_mad_ms": 3.1400006264448166e-05,
+      "after_mad_ms": 6.839993875473738e-05,
+      "median_paired_saving_ms": 0.0028864999767392874,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 0.005831000045873225,
+          "after": 0.002917699981480837
+        },
+        {
+          "after": 0.0028344999300315976,
+          "before": 0.0057613999815657735
+        },
+        {
+          "before": 0.005745300091803074,
+          "after": 0.0028772999066859484
+        },
+        {
+          "after": 0.0028304000152274966,
+          "before": 0.005856700008735061
+        },
+        {
+          "before": 0.0058253000024706125,
+          "after": 0.003005499951541424
+        },
+        {
+          "after": 0.003050600062124431,
+          "before": 0.005935899913311005
+        },
+        {
+          "before": 0.005817700061015785,
+          "after": 0.0029953999910503626
+        },
+        {
+          "after": 0.0030390999745577574,
+          "before": 0.0059507000260055065
+        },
+        {
+          "before": 0.005823599989525974,
+          "after": 0.0029371000127866864
+        }
+      ],
+      "before_source": "0a899ea3be19b7c1d4fcdb809f27712d4dfa1d03",
+      "after_source": "retained vectorized entropy and native scalar clamp",
+      "parity_distributions": 1000,
+      "loop_exact_mismatches": 751,
+      "loop_max_abs_difference": 6.661338147750939e-16,
+      "rounded_4dp_mismatches": 0
+    },
+    {
+      "name": "entropy_loop_vs_vectorized_k256",
+      "loops_per_sample": 1000,
+      "warmups": 3,
+      "before_median_ms": 0.021721299970522523,
+      "after_median_ms": 0.0035672999219968915,
+      "before_mad_ms": 0.00011389993596822023,
+      "after_mad_ms": 5.340005736798048e-05,
+      "median_paired_saving_ms": 0.018187500070780516,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 0.021562299923971295,
+          "after": 0.0037993000587448478
+        },
+        {
+          "after": 0.0035237999400123954,
+          "before": 0.02171130001079291
+        },
+        {
+          "before": 0.021548899938352406,
+          "after": 0.0035585000878199935
+        },
+        {
+          "after": 0.0034527000971138477,
+          "before": 0.021846699994057417
+        },
+        {
+          "before": 0.022118399967439473,
+          "after": 0.003620699979364872
+        },
+        {
+          "after": 0.003478799946606159,
+          "before": 0.021810000063851476
+        },
+        {
+          "before": 0.02182699996046722,
+          "after": 0.0036069999914616346
+        },
+        {
+          "after": 0.0035672999219968915,
+          "before": 0.021607400034554303
+        },
+        {
+          "before": 0.021721299970522523,
+          "after": 0.003632300067692995
+        }
+      ],
+      "before_source": "0a899ea3be19b7c1d4fcdb809f27712d4dfa1d03",
+      "after_source": "retained vectorized entropy and native scalar clamp",
+      "parity_distributions": 1000,
+      "loop_exact_mismatches": 842,
+      "loop_max_abs_difference": 1.4432899320127035e-15,
+      "rounded_4dp_mismatches": 0
+    }
+  ],
+  "checkpoint": null,
+  "memory_note": "tracemalloc is Python-visible peak, not native Torch allocator or process RSS",
+  "seed": 29018,
+  "reproduction_harness_sha256": "26b741bb49e400f695e722a423ea01bfa3cfc9cf6336d5caa4cb668247412cbb",
+  "final_review_source_sha256": {
+    "laya/agent.py": "674bf72c505eeafad2e1a1eb02c7e78e5ad3b36ee251d68c6721aec9be8bee35",
+    "laya/common.py": "ebdd39aa57cd3869561643c270cb0fb544a65d01050e9bf69dd0bef1c2ac9b46",
+    "laya/onnx_agent.py": "b45a6271fc26c61f7462752e5e694c35933c804b3bd59a0bc8422e83b2edf391",
+    "laya/consistency.py": "12d878604c995f8abf17273e61ea706c3d0bef9ca7c78c112b5481c7a907145f"
+  }
+}

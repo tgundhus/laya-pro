@@ -93,6 +93,9 @@ crewai = [
     "crewai>=1.15.6",
 ]
 
+# Agno 3.x routing and guardrails, tested with the patched 3.1.12 release.
+agno = ["agno>=3.1.12,<4"]
+
 [project.scripts]
 laya = "laya.cli:main"
 laya-serve = "laya.serve:main"

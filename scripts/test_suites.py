@@ -106,6 +106,8 @@ SCRIPT_SUITES = [
     "tests/test_llamaindex.py",
     "tests/test_langchain_real_mode.py",
     "tests/test_email.py",
+    "tests/test_agno.py",
+    "tests/test_runtime_adoption.py",
 ]
 
 PYTEST_SUITES = [
@@ -120,6 +122,11 @@ PYTEST_SUITES = [
     "tests/test_compile.py",
     "tests/test_finetune_entrypoints.py",
     "tests/test_evals_agreement.py",
+    "tests/test_evals_validation.py",
+    "tests/test_lang_diagnostics.py",
+    "tests/test_mcp_diagnostics.py",
+    "tests/test_mcp_patterns.py",
+    "tests/test_integrations_adoption.py",
 ]
 
 

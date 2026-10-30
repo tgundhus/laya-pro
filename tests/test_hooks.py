@@ -1497,6 +1497,28 @@ check_raises("timeout/negative is rejected", ValueError, lambda: validate_timeou
 check_raises("timeout/NaN is rejected", ValueError, lambda: validate_timeout(float("nan")))
 check_raises("timeout/infinity is rejected", ValueError, lambda: validate_timeout(float("inf")))
 check_raises("timeout/-infinity is rejected", ValueError, lambda: validate_timeout(float("-inf")))
+check_raises("timeout/True is rejected", ValueError, lambda: validate_timeout(True))
+check_raises("timeout/False is rejected", ValueError, lambda: validate_timeout(False))
+
+
+# The refusal has to say *why*. `False` raises either way -- as a wrong type here, as a non-positive
+# number in the branch below -- so an arm that only checks the exception type cannot tell the two
+# apart, and a guard that simply fell through would pass it. `0` keeps the original wording.
+def _timeout_message(value):
+    try:
+        validate_timeout(value)
+    except ValueError as exc:
+        return str(exc)
+    return "<accepted>"
+
+
+check_true("timeout/a bool is refused as a bool", "not a bool" in _timeout_message(True),
+           _timeout_message(True))
+check_true("timeout/False is refused as a bool too", "not a bool" in _timeout_message(False),
+           _timeout_message(False))
+check_true("timeout/zero keeps the non-positive wording",
+           "not a bool" not in _timeout_message(0) and "positive finite" in _timeout_message(0),
+           _timeout_message(0))
 check("timeout/positive passes through", validate_timeout(1.5), 1.5)
 check("timeout/None means no limit", validate_timeout(None), None)
 
@@ -1507,6 +1529,17 @@ check_raises("timeout/NaN per call is rejected", ValueError,
              lambda: f.predict_batch(["s0"], QUESTIONS, hooks_timeout=float("nan")))
 check_raises("timeout/infinity per call is rejected", ValueError,
              lambda: f.predict_batch(["s0"], QUESTIONS, hooks_timeout=float("inf")))
+
+# `float(True) == 1.0`, so `hooks_timeout=True` -- which reads like "yes, time the hooks" -- used to
+# install a one-second deadline on every hook call, and `False` was refused as a non-positive number,
+# the wrong reason for a wrong type. Both spellings now raise where they are set, per call and at
+# construction alike; an int and a numeric string are not bools and still bound the wait.
+check_raises("timeout/True per call is rejected", ValueError,
+             lambda: f.predict_batch(["s0"], QUESTIONS, hooks_timeout=True))
+check_raises("timeout/True at construction is rejected", ValueError,
+             lambda: Router(hooks_timeout=True))
+check("timeout/int still bounds", Router(hooks_timeout=1).hooks_timeout, 1.0)
+check("timeout/numeric string still bounds", Router(hooks_timeout="0.5").hooks_timeout, 0.5)
 
 not_running = asyncio.new_event_loop()
 try:

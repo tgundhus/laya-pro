@@ -66,9 +66,15 @@ except ImportError:
 from ._controls import budget_kwargs as _budget_kwargs, hook_kwargs as _hook_kwargs  # noqa: E402
 from ._controls import decision_kwargs as _decision_kwargs  # noqa: E402
 from ._controls import predict_kwargs as _predict_kwargs, reject_remote_hooks as _reject_remote_hooks  # noqa: E402
+from ._controls import reject_remote_lang_guess as _reject_remote_lang_guess  # noqa: E402
+from ._controls import require_router_controls as _require_router_controls  # noqa: E402
+from ._controls import router_kwargs as _router_kwargs  # noqa: E402
 
 # One class for every integration, so `except LayaLowConfidenceError` catches all of them.
 from ._errors import LayaLowConfidenceError  # noqa: E402
+from ._guard import answers_map as _answers_map  # noqa: E402
+from ._guard import malformed as _malformed  # noqa: E402
+from ._guard import probability_map as _probability_map  # noqa: E402
 from ..confidence import _gate_confidence  # noqa: E402
 
 
@@ -147,13 +153,18 @@ def _call_remote(
     head_max_len: Optional[int] = None,
     lang: Optional[str] = None,
     min_confidence: Optional[float] = None,
+    task: Optional[str] = None,
+    lang_guess: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Send decision request to a remote laya-serve HTTP instance using standard library urllib.
 
     `max_len` / `head_max_len` travel in the body; laya-serve applies them up to its
     `LAYA_MAX_TOKEN_BUDGET` ceiling and answers a larger value with 422. `lang` / `min_confidence`
     ride in the same body (they are laya-serve `BODY_CONTROLS` too): the language codes the state
-    is routed and answered in, and core's abstention gate.
+    is routed and answered in, and core's abstention gate. `task` names the checkpoint that answers
+    and `lang_guess` is the language code routing reads before its own detection -- both are
+    laya-serve body controls too, and only `lang_guess`'s string form has a wire representation
+    (`reject_remote_lang_guess` refuses the callable before the request).
     """
     url = base_url.rstrip("/")
     if not url.endswith("/v1/systemone"):
@@ -170,6 +181,10 @@ def _call_remote(
         payload["lang"] = lang
     if min_confidence is not None:
         payload["min_confidence"] = min_confidence
+    if task is not None:
+        payload["task"] = task
+    if lang_guess is not None:
+        payload["lang_guess"] = lang_guess
 
     data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
@@ -180,12 +195,34 @@ def _call_remote(
     opener = urllib.request.build_opener(_SameOriginRedirectHandler())
     try:
         with opener.open(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            parsed = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"Laya server error {e.code}: {body}") from e
     except Exception as e:
         raise RuntimeError(f"Failed to connect to Laya server at {url}: {e}") from e
+    # A remote laya-serve answers with a JSON object, but `json.loads` accepts any top-level value:
+    # a gateway, a mis-pointed `base_url`, or a proxy error page can reply with a bare array, string,
+    # number or `true`/`null`. Consumers read the result with `res.get("answers", …)` (the selector
+    # and route lookups), so a non-object leaks ``AttributeError: 'list' object has no attribute
+    # 'get'`` instead of the ``RuntimeError`` every other remote failure here already raises. The
+    # check sits after the ``try`` so it is not swallowed by the catch-all connect handler above.
+    if not isinstance(parsed, dict):
+        raise RuntimeError(
+            f"Malformed decision response from Laya server at {url}: "
+            f"expected a JSON object, got {type(parsed).__name__}"
+        )
+    # `parsed` is an object now, but its `answers` field is the same arbitrary JSON: a gateway can
+    # answer `{"answers": []}`. The selector, the multi-selector and the query router each read it as
+    # `res.get("answers", {})` and then call `.get("selector"/"route", …)` on it, so a non-object there
+    # leaks AttributeError past the same fail-closed paths -- this is the guard above one level deeper.
+    # A missing `answers` is left alone: that is the no-decision case they already handle.
+    if "answers" in parsed and not isinstance(parsed["answers"], dict):
+        raise RuntimeError(
+            f"Malformed decision response from Laya server at {url}: "
+            f"'answers' must be a JSON object, got {type(parsed['answers']).__name__}"
+        )
+    return parsed
 
 
 _DEFAULT_ROUTER = None
@@ -213,6 +250,8 @@ def _execute_decision(
     head_max_len: Optional[int] = None,
     lang: Optional[str] = None,
     min_confidence: Optional[float] = None,
+    task: Optional[str] = None,
+    lang_guess: Optional[Any] = None,
     hooks: Optional[Any] = None,
     on_predict_start: Optional[Any] = None,
     on_predict_end: Optional[Any] = None,
@@ -225,14 +264,17 @@ def _execute_decision(
     CrewAI wrappers -- they end at the same `predict` call and the same request body.
     """
     hook_kwargs = _hook_kwargs(hooks, on_predict_start, on_predict_end, hooks_raise, hooks_timeout)
+    router_kwargs = _router_kwargs(task, lang_guess)
     if base_url:
         _reject_remote_hooks(hook_kwargs, base_url)
+        _reject_remote_lang_guess(router_kwargs, base_url)
         budget = _budget_kwargs(max_len, head_max_len)
         decision = _decision_kwargs(lang, min_confidence)
         return _call_remote(base_url, state, questions, api_key=api_key, model=model,
-                            **budget, **decision)
+                            **budget, **decision, **router_kwargs)
     runner = agent if agent is not None else _get_default_router()
     kwargs = _predict_kwargs(model, max_len, head_max_len, lang, min_confidence)
+    kwargs.update(_require_router_controls(runner, "predict", router_kwargs))
     kwargs.update(hook_kwargs)
     return runner.predict(state, questions, **kwargs)
 
@@ -264,6 +306,9 @@ class LayaSingleSelector(BaseSelector):
         on_predict_end: Optional[Any] = None,
         hooks_raise: Optional[bool] = None,
         hooks_timeout: Optional[float] = None,
+        *,
+        task: Optional[str] = None,
+        lang_guess: Optional[Any] = None,
     ):
         self.instructions = instructions
         self.confidence_threshold = confidence_threshold
@@ -277,6 +322,8 @@ class LayaSingleSelector(BaseSelector):
         self.head_max_len = head_max_len
         self.lang = lang
         self.min_confidence = min_confidence
+        self.task = task
+        self.lang_guess = lang_guess
         self.hooks = hooks
         self.on_predict_start = on_predict_start
         self.on_predict_end = on_predict_end
@@ -321,6 +368,8 @@ class LayaSingleSelector(BaseSelector):
             head_max_len=self.head_max_len,
             lang=self.lang,
             min_confidence=self.min_confidence,
+            task=self.task,
+            lang_guess=self.lang_guess,
             hooks=self.hooks,
             on_predict_start=self.on_predict_start,
             on_predict_end=self.on_predict_end,
@@ -328,9 +377,16 @@ class LayaSingleSelector(BaseSelector):
             hooks_timeout=self.hooks_timeout,
         )
         self.last_decision = res
-
-        ans = res.get("answers", {}).get("selector", {})
+        where = f"Laya server at {self.base_url}" if self.base_url else "Laya"
+        # A remote body is arbitrary JSON: `answers`, the answer under `selector` and the fields
+        # read out of it are all checked before use, so a malformed body fails closed with a named
+        # error instead of raising AttributeError/TypeError out of a routing decision. `choice` is
+        # the field that used to crash here -- `.startswith` on a list -- and `confidence` is read
+        # through `_gated_confidence`, which already refuses a non-number and a bool.
+        ans = _answers_map(res, where).get("selector", {})
         chosen_key = ans.get("choice")
+        if chosen_key is not None and not isinstance(chosen_key, str):
+            raise _malformed(where, "selector choice must be a string, got %s" % type(chosen_key).__name__)
         conf = _gated_confidence(ans)
 
         # Confidence gating
@@ -351,7 +407,7 @@ class LayaSingleSelector(BaseSelector):
                 )
 
         if not isinstance(chosen_key, str) or chosen_key not in criteria:
-            raise ValueError(f"Laya returned an unknown selector choice: {chosen_key!r}.")
+            raise ValueError(f"Laya returned an unknown selector choice: {chosen_key!r} among {len(choices)} choices.")
         chosen_idx = list(criteria.keys()).index(chosen_key)
         choice_obj = choices[chosen_idx]
         choice_name = getattr(choice_obj, "name", None) or f"choice_{chosen_idx}"
@@ -409,6 +465,9 @@ class LayaMultiSelector(BaseSelector):
         on_predict_end: Optional[Any] = None,
         hooks_raise: Optional[bool] = None,
         hooks_timeout: Optional[float] = None,
+        *,
+        task: Optional[str] = None,
+        lang_guess: Optional[Any] = None,
     ):
         self.instructions = instructions
         self.max_outputs = max_outputs
@@ -422,6 +481,8 @@ class LayaMultiSelector(BaseSelector):
         self.head_max_len = head_max_len
         self.lang = lang
         self.min_confidence = min_confidence
+        self.task = task
+        self.lang_guess = lang_guess
         self.hooks = hooks
         self.on_predict_start = on_predict_start
         self.on_predict_end = on_predict_end
@@ -459,6 +520,8 @@ class LayaMultiSelector(BaseSelector):
             head_max_len=self.head_max_len,
             lang=self.lang,
             min_confidence=self.min_confidence,
+            task=self.task,
+            lang_guess=self.lang_guess,
             hooks=self.hooks,
             on_predict_start=self.on_predict_start,
             on_predict_end=self.on_predict_end,
@@ -466,22 +529,24 @@ class LayaMultiSelector(BaseSelector):
             hooks_timeout=self.hooks_timeout,
         )
         self.last_decision = res
+        where = f"Laya server at {self.base_url}" if self.base_url else "Laya"
+        # Same checks as the single selector, plus `probabilities`: this one sorts and thresholds
+        # every value, so a dict mixing numbers with a string raised TypeError from `sorted`, and a
+        # `true` ranked first as 1.0 (bool subclasses int) -- a malformed body could win the
+        # selection rather than being refused. Restricting to the caller's own keys also keeps an
+        # unknown extra key from winning the ranking.
+        ans = _answers_map(res, where).get("selector", {})
+        key_list = list(criteria.keys())
+        probs = _probability_map(ans, key_list, where)
 
-        ans = res.get("answers", {}).get("selector", {})
-        probs = ans.get("probabilities", {})
+        # Sort candidate choices by descending probability. Every key is present in `probs` and each
+        # value is a float, so this cannot raise on mixed types any more (it used to).
+        ranked = sorted(key_list, key=probs.__getitem__, reverse=True)
 
         selected: List[ToolSelection] = []
-        key_list = list(criteria.keys())
-
-        # Sort candidate choices by descending probability
-        ranked = sorted(
-            key_list,
-            key=lambda k: probs.get(k, 0.0),
-            reverse=True,
-        )
 
         for key in ranked:
-            prob = probs.get(key, 0.0)
+            prob = probs[key]
             if prob >= self.probability_threshold:
                 try:
                     idx = int(key.split("_")[1]) if key.startswith("choice_") else key_list.index(key)
@@ -564,6 +629,9 @@ class LayaQueryRouter:
         on_predict_end: Optional[Any] = None,
         hooks_raise: Optional[bool] = None,
         hooks_timeout: Optional[float] = None,
+        *,
+        task: Optional[str] = None,
+        lang_guess: Optional[Any] = None,
     ):
         self.query_engines = query_engines
         self.descriptions = descriptions or {}
@@ -578,6 +646,8 @@ class LayaQueryRouter:
         self.head_max_len = head_max_len
         self.lang = lang
         self.min_confidence = min_confidence
+        self.task = task
+        self.lang_guess = lang_guess
         self.hooks = hooks
         self.on_predict_start = on_predict_start
         self.on_predict_end = on_predict_end
@@ -612,6 +682,8 @@ class LayaQueryRouter:
             head_max_len=self.head_max_len,
             lang=self.lang,
             min_confidence=self.min_confidence,
+            task=self.task,
+            lang_guess=self.lang_guess,
             hooks=self.hooks,
             on_predict_start=self.on_predict_start,
             on_predict_end=self.on_predict_end,
@@ -619,9 +691,11 @@ class LayaQueryRouter:
             hooks_timeout=self.hooks_timeout,
         )
         self.last_decision = res
-
-        ans = res.get("answers", {}).get("route", {})
+        where = f"Laya server at {self.base_url}" if self.base_url else "Laya"
+        ans = _answers_map(res, where).get("route", {})
         chosen = ans.get("choice")
+        if chosen is not None and not isinstance(chosen, str):
+            raise _malformed(where, "'choice' must be a string, got %s" % type(chosen).__name__)
         conf = _gated_confidence(ans)
 
         if self.confidence_threshold > 0.0 and conf < self.confidence_threshold:

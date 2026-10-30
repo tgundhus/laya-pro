@@ -19,6 +19,7 @@
  * with a `toJSONSchema()` method is accepted.
  */
 import type { QuestionDef } from "./agent.js";
+import type { PredictBatchOptions } from "./router.js";
 import { checkMinConfidence, flagLowConfidence } from "./common.js";
 import type { MinConfidence } from "./common.js";
 
@@ -40,6 +41,12 @@ export interface DecisionResult {
   values: Record<string, unknown>;
   /** Per-field confidence. */
   confidence: Record<string, number>;
+  /**
+   * Per-field answerConfidence (max(p)), matching Python DecisionResult.answer_confidence.
+   * The quantity minConfidence gates on and calibration figures evaluate.
+   * Maps to null if no valid answer_confidence was reported.
+   */
+  answerConfidence: Record<string, number | null>;
   /** Per-field probabilities (noul fields report { false, true }). */
   probabilities: Record<string, Record<string, unknown>>;
   /** Laya's raw answer per field. */
@@ -66,6 +73,12 @@ export interface DecideRunner {
     questions: Record<string, QuestionDef>,
     opts?: Record<string, unknown>,
   ): Promise<{ answers?: Record<string, Record<string, any> | undefined>; usage?: unknown; routing?: unknown }>;
+  predictBatch?(
+    statesOrRequests: any[],
+    questionsOrBatchSize?: unknown,
+    opts?: Record<string, unknown>,
+  ): Promise<any[]>;
+  routeBatch?(requests: any[]): any[];
 }
 
 export interface DecideOptions {
@@ -78,6 +91,21 @@ export interface DecideOptions {
   /** Python parity alias for minConfidence. */
   min_confidence?: MinConfidence | null;
   /** Anything else is forwarded to runner.predict (hooks, model, ...). */
+  [k: string]: unknown;
+}
+
+export interface DecideBatchOptions {
+  /** Explicit questions instead of a schema (answers are returned unprojected). */
+  questions?: Record<string, QuestionDef>;
+  /** Return a DecisionResult per state with confidence, probabilities and raw answers. */
+  returnDetails?: boolean;
+  /** Minimum confidence threshold or per-bucket map. Low confidence answers project to null. */
+  minConfidence?: MinConfidence | null;
+  /** Python-parity alias for minConfidence. */
+  min_confidence?: MinConfidence | null;
+  /** Batch size forwarded to runner.predictBatch. */
+  batchSize?: number | null;
+  /** Anything else is forwarded to runner.predictBatch (hooks, model, ...). */
   [k: string]: unknown;
 }
 
@@ -118,7 +146,10 @@ function enumField(path: string, name: string, values: unknown[], description: u
     throw new SchemaError(`${path}: ${values.length} options exceeds MAX_OPTIONS=${MAX_OPTIONS}`);
   }
   if (values.length === 0) throw new SchemaError(`${path}: 'enum' must not be empty`);
-  if (values.every((v) => typeof v === "boolean")) return noulField(name, description);
+  // Only two distinct booleans map to noul; single-value enums stay choices.
+  if (values.length === 2 && values.every((v) => typeof v === "boolean") && values[0] !== values[1]) {
+    return noulField(name, description);
+  }
   const options: [string, unknown][] = values.map((v) => [v == null ? "null" : String(v), v]);
   if (new Set(options.map(([label]) => label)).size !== options.length) {
     throw new SchemaError(`${path}: enum values produce duplicate choice labels`);
@@ -237,11 +268,16 @@ export function questionsFromJsonSchema(schema: unknown): Record<string, Questio
   return Object.fromEntries(planFromJsonSchema(schema).map((f) => [f.name, f.question]));
 }
 
-function project(answers: Record<string, Record<string, any> | undefined>, fields: PlannedField[]): Record<string, unknown> {
+/** Malformed answer entries are omitted from projection and details, matching Python. */
+function isAnswerObject(answer: unknown): answer is Record<string, any> {
+  return answer !== null && typeof answer === "object" && !Array.isArray(answer);
+}
+
+function project(answers: Record<string, unknown>, fields: PlannedField[]): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const f of fields) {
     const answer = answers[f.name];
-    if (answer == null) continue;
+    if (!isAnswerObject(answer)) continue;
     if (answer.low_confidence) {
       values[f.name] = null;
       continue;
@@ -277,23 +313,35 @@ function project(answers: Record<string, Record<string, any> | undefined>, field
 
 /** Project Laya answers onto the schema values (choice value, integer level, boolean). */
 export function answersToJson(
-  answers: Record<string, Record<string, any> | undefined>,
+  answers: Record<string, unknown>,
   schema: unknown,
 ): Record<string, unknown> {
   return project(answers, planFromJsonSchema(schema));
 }
 
 
+function answerConfidenceValue(answer: Record<string, any>): number | null {
+  const conf = answer.answer_confidence;
+  if (typeof conf === "number" && Number.isFinite(conf)) {
+    return conf;
+  }
+  return null;
+}
+
 function detailsOf(
   values: Record<string, unknown>,
-  answers: Record<string, Record<string, any> | undefined>,
+  answers: Record<string, unknown>,
   result: { usage?: unknown; routing?: unknown },
 ): DecisionResult {
   const confidence: Record<string, number> = {};
+  const answerConfidence: Record<string, number | null> = {};
   const probabilities: Record<string, Record<string, unknown>> = {};
   for (const [name, answer] of Object.entries(answers)) {
-    if (answer == null) continue;
+    // Same rule as `project`: a non-object answer reports no confidence, no max(p) and no
+    // probability map, rather than a 0.0/null/{} entry for a question that was never answered.
+    if (!isAnswerObject(answer)) continue;
     confidence[name] = Number(answer.confidence ?? 0.0);
+    answerConfidence[name] = answerConfidenceValue(answer);
     if (answer.type === "noul") {
       const p = Number(answer.noul ?? 0.0);
       probabilities[name] = { false: r4(1.0 - p), true: r4(p) };
@@ -301,7 +349,15 @@ function detailsOf(
       probabilities[name] = { ...(answer.probabilities ?? {}) };
     }
   }
-  return { values, confidence, probabilities, answers: { ...answers }, usage: result.usage, routing: result.routing };
+  return {
+    values,
+    confidence,
+    answerConfidence,
+    probabilities,
+    answers: { ...answers },
+    usage: result.usage,
+    routing: result.routing,
+  };
 }
 
 /**
@@ -354,3 +410,96 @@ export async function decide(
   return values;
 }
 
+/**
+ * Answer many states against one schema in one batched call, in input order.
+ *
+ * The throughput form of `decide`: the schema is planned once and its questions
+ * are evaluated over every state through `runner.predictBatch` (shared forward
+ * passes, results in input order), then each state's answers are projected exactly
+ * as `decide` does. Pass exactly one of `schema` or `opts.questions`.
+ */
+export async function decideBatch(
+  runner: DecideRunner,
+  states: unknown[],
+  schema: unknown,
+  opts: DecideBatchOptions & { returnDetails: true },
+): Promise<DecisionResult[]>;
+export async function decideBatch(
+  runner: DecideRunner,
+  states: unknown[],
+  schema?: unknown,
+  opts?: DecideBatchOptions,
+): Promise<Record<string, unknown>[]>;
+export async function decideBatch(
+  runner: DecideRunner,
+  states: unknown[],
+  schema?: unknown,
+  opts: DecideBatchOptions = {},
+): Promise<Record<string, unknown>[] | DecisionResult[]> {
+  const {
+    questions,
+    returnDetails = false,
+    minConfidence,
+    min_confidence,
+    ...predictOpts
+  } = opts;
+  if ((schema == null) === (questions == null)) {
+    throw new Error("pass exactly one of schema= or questions=");
+  }
+  if (typeof states === "string" || !Array.isArray(states)) {
+    throw new TypeError(`states must be an array of states, not ${pyType(states)}`);
+  }
+
+  const mcOpt = minConfidence ?? min_confidence;
+  const mc = mcOpt !== undefined && mcOpt !== null ? checkMinConfidence(mcOpt) : null;
+
+  let fields: PlannedField[] | null = null;
+  let qs = questions;
+  if (schema != null) {
+    fields = planFromJsonSchema(schemaOf(schema));
+    qs = Object.fromEntries(fields.map((f) => [f.name, f.question]));
+  }
+
+  const r = runner as any;
+  const predictBatchFn = typeof r.predictBatch === "function" ? r.predictBatch : null;
+  if (!predictBatchFn) {
+    const runnerName = r?.constructor?.name ?? typeof runner;
+    throw new TypeError(`${runnerName} has no predictBatch; loop decide() over the states instead`);
+  }
+
+  const isRouter = typeof r.routeBatch === "function";
+  let results: any[];
+  if (isRouter) {
+    // Routing/budget overrides belong on requests; hooks belong in call options.
+    const requestKeys = ["model", "task", "lang", "langGuess", "lang_guess", "maxLen", "headMaxLen"];
+    const perRequest: Record<string, unknown> = {};
+    const callOpts: PredictBatchOptions = {};
+    for (const [key, value] of Object.entries(predictOpts)) {
+      if (requestKeys.includes(key)) {
+        perRequest[key] = value;
+      } else if (key === "hooks" || key === "onPredictStart" || key === "onPredictEnd" || key === "hooksRaise") {
+        (callOpts as Record<string, unknown>)[key] = value;
+      }
+    }
+    const requests = states.map((s) => ({ state: s, questions: qs, ...perRequest }));
+    const batchSize = (predictOpts.batchSize ?? null) as number | null;
+    results = await predictBatchFn.call(runner, requests, batchSize, callOpts);
+  } else {
+    results = await predictBatchFn.call(runner, states, qs as Record<string, QuestionDef>, predictOpts);
+  }
+
+  if (mc !== null && Array.isArray(results)) {
+    flagLowConfidence(results as Record<string, unknown>[], mc);
+  }
+
+  const one = (res: any) => {
+    const answers = (res && typeof res === "object" ? res.answers : null) || {};
+    const values = fields !== null ? project(answers, fields) : { ...answers };
+    if (returnDetails) {
+      return detailsOf(values, answers, res || {});
+    }
+    return values;
+  };
+
+  return (results || []).map(one);
+}

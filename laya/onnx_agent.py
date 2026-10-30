@@ -18,22 +18,58 @@ from laya.common import (
     answer_confidence,
     build_sequence,
     collapsed_options,
-    collate_items,
     confidence_from_probs,
     encode_text,
     render_criterion,
-    render_options,
     resolve_lang_temperatures,
     serialize_state,
     window_batch_cap,
     window_budget,
     temp_bucket,
+    temperature_rejected,
     unpermute_probs,
     TEMP_MIN,
     TEMP_MAX,
     clamp_temperature,
 )
 from laya.confidence import apply_confidence_gate, check_min_confidence
+
+
+def _collate_items_numpy(batch: List[List[Dict[str, Any]]], pad_id: int) -> Dict[str, np.ndarray]:
+    """Collate encoded question rows across states directly into NumPy arrays for ONNX Runtime."""
+    items = [it for group in batch for it in group]
+    if not items:
+        return {}
+    n = len(items)
+    L = max(len(it["ids"]) for it in items)
+    kmax = max(len(it["markers"]) for it in items)
+    # The exported head takes `topk(2)` of the option probabilities: the eager forward's
+    # one-option branch is a Python `if`, which the trace bakes in, so ONNX Runtime refuses
+    # a run whose questions all have one option. Allocating at least 2 marker columns gives
+    # the masked second slot the act head expects without needing a post-collation np.pad.
+    k_cols = max(kmax, 2)
+
+    ids = np.full((n, L), pad_id, dtype=np.int64)
+    att = np.zeros((n, L), dtype=np.int64)
+    mpos = np.zeros((n, k_cols), dtype=np.int64)
+    mmask = np.zeros((n, k_cols), dtype=bool)
+
+    for i, it in enumerate(items):
+        it_ids = it["ids"]
+        ids[i, :len(it_ids)] = it_ids
+        att[i, :len(it_ids)] = 1
+        markers = it["markers"]
+        k = len(markers)
+        mpos[i, :k] = markers
+        mmask[i, :k] = True
+
+    return {
+        "input_ids": ids,
+        "attention_mask": att,
+        "marker_pos": mpos,
+        "marker_mask": mmask,
+        "qtype": np.array([it["qtype"] for it in items], dtype=np.int64),
+    }
 
 
 class ONNXAgent(HookRegistry):
@@ -209,13 +245,8 @@ class ONNXAgent(HookRegistry):
         entries += [("temperature[%d]" % i, t, self.temperature[i]) for i, t in enumerate(self.temperature_raw)]
         rejected = []
         for name, raw, applied in entries:
-            try:
-                if float(raw) == applied:
-                    continue
-            except (TypeError, ValueError):
-                # Invalid entries already have a neutral fallback; diagnostics must not
-                # repeat the failed conversion or prevent the checkpoint from loading.
-                pass
+            if not temperature_rejected(raw, applied):
+                continue
             rejected.append("%s=%r -> %g" % (name, raw, applied))
         if rejected:
             warnings.warn(
@@ -392,6 +423,9 @@ class ONNXAgent(HookRegistry):
                 ctx.usage = aggregate_usage(ctx.results)
                 apply_confidence_gate(ctx.results, mc)
             try:
+                record_scan = getattr(ctx, "_record_scan_results", None)
+                if ctx.error is None and ctx.results is not None and record_scan is not None:
+                    record_scan(ctx)
                 dispatch(active, "on_predict_end", ctx, raise_errors=raise_errors, lock=self._hooks_lock, timeout=timeout)
             except BaseException as hook_exc:
                 if ctx.error is not None:
@@ -448,7 +482,9 @@ class ONNXAgent(HookRegistry):
                     follow `Agent.predict_long`'s contract: they wrap the inference that answers
                     the state, a start hook that answers with `ctx.skip(...)` gets
                     `usage["windows"] == 0` and no window attribution, and a rewritten scan is
-                    aggregated without `answer["window"]`.
+                    aggregated without `answer["window"]`. End-hook result reordering keeps an
+                    unchanged answer's original span; cloned, replaced or edited answers omit it.
+                    DecisionCache restores retained answers' origins before later end hooks run.
             on_predict_start (PredictHookArg): A per-call start hook, as in `system_one`.
             on_predict_end (PredictHookArg): A per-call end hook, as in `system_one`.
             hooks_raise: Override the agent's `hooks_raise` for this call.
@@ -459,7 +495,7 @@ class ONNXAgent(HookRegistry):
         in `Agent.predict_long`: `truncated` is a window count and `truncated_questions` is the
         last window's list, so `truncated` can be above 0 while the list is empty.
         """
-        from .agent import _check_scan_budget, _replayed_from_memory, _start_evidence, _with_start_probe
+        from .agent import _check_scan_budget, _replayed_from_memory, _scan_answer_index, _start_evidence, _with_start_probe
         from .hooks import aggregate_usage
 
         hook_kwargs = {"hooks": hooks, "on_predict_start": on_predict_start,
@@ -535,7 +571,7 @@ class ONNXAgent(HookRegistry):
                 break
             i += step
 
-        probe, evidence = _start_evidence()
+        probe, evidence = _start_evidence(track_answers=True)
         # A copy, so a start hook that mutates `ctx.states` in place cannot shift `starts`.
         # Bound one forward pass to what the un-capped scan would have used; see
         # `window_batch_cap`. An explicit batch_size is honoured untouched.
@@ -585,6 +621,14 @@ class ONNXAgent(HookRegistry):
             question_types = {qid: self._to_internal(qdef)["t"] for qid, qdef in questions.items()}
         answers = {}
         for qid, qtype in question_types.items():
+            missing = sum(qid not in r["answers"] for r in results)
+            if missing:
+                # End hooks may remove start-added questions, but must not hide a missing
+                # caller answer or an inconsistent set of answers across windows.
+                if missing == len(results) and qid not in asked and evidence["question_types"] is not None:
+                    continue
+                raise ValueError("predict_long: answer %r is missing from %d of %d windows after prediction hooks"
+                                 % (qid, missing, len(results)))
             per = [r["answers"][qid] for r in results]
             if qtype == "noul":
                 # Evidence anywhere: the strongest window decides, carrying its own P(true),
@@ -594,11 +638,14 @@ class ONNXAgent(HookRegistry):
                 # choice / score: the most-confident window wins, preserving a localized signal
                 # that averaging over a mostly-neutral document would drown.
                 best = max(range(len(per)), key=lambda j: float(per[j]["answer_confidence"]))
-            ans = per[best]
+            original = per[best]
+            index = None if rewritten else _scan_answer_index(evidence, qid, original, best)
+            ans = dict(original)
+            ans.pop("window", None)
             # Name the window that decided; the probability is that window's, not the document's.
-            if not rewritten:
-                ans["window"] = {"index": best, "token_start": starts[best],
-                                 "token_end": min(starts[best] + budget, len(state_ids)),
+            if index is not None:
+                ans["window"] = {"index": index, "token_start": starts[index],
+                                 "token_end": min(starts[index] + budget, len(state_ids)),
                                  "count": len(results)}
             answers[qid] = ans
         # Aggregate usage generically so fields predict_batch may grow later are propagated
@@ -658,7 +705,7 @@ class ONNXAgent(HookRegistry):
                 truncate_left=truncate_left, state_ids=state_ids, return_stats=True,
                 return_truncation_stats=True,
             )
-            n_opts = len(render_options(q))
+            n_opts = stats["options"]
             if len(markers) != n_opts:
                 # Same diagnosis as `Agent._encode_state`, so both backends report the same thing.
                 # The markers are placed at absolute positions and `build_sequence` drops the ones
@@ -693,7 +740,7 @@ class ONNXAgent(HookRegistry):
                 t_scale = l_cfg["temperature_by_options"].get(temp_bucket(qt, k), l_cfg["temperature"][qt])
             z = logits[offset + r, :k] / t_scale
             p = np.exp(z - z.max())
-            p = p / p.sum()
+            p /= p.sum()
 
             # The row comes back in slot order; everything below indexes by option.
             p = unpermute_probs(p, q.get("option_order"))
@@ -787,26 +834,7 @@ class ONNXAgent(HookRegistry):
                 indices = order[offset:offset + chunk]
                 per_state_items = [encoded[i] for i in indices]
 
-                b = collate_items(per_state_items, self.tok.pad_token_id)
-
-                marker_pos = b["marker_pos"].numpy().astype(np.int64)
-                marker_mask = b["marker_mask"].numpy().astype(bool)
-                if marker_pos.shape[1] < 2:
-                    # The exported head traces topk(2), including when an eager one-option
-                    # forward would pad its second probability with zero. Supply the same
-                    # masked second slot; decoding still uses each question's own width.
-                    width = ((0, 0), (0, 2 - marker_pos.shape[1]))
-                    marker_pos = np.pad(marker_pos, width)
-                    marker_mask = np.pad(marker_mask, width)
-
-                # Prepare ONNX inputs as numpy arrays
-                ort_inputs = {
-                    "input_ids": b["input_ids"].numpy().astype(np.int64),
-                    "attention_mask": b["attention_mask"].numpy().astype(np.int64),
-                    "marker_pos": marker_pos,
-                    "marker_mask": marker_mask,
-                    "qtype": b["qtype"].numpy().astype(np.int64),
-                }
+                ort_inputs = _collate_items_numpy(per_state_items, self.tok.pad_token_id)
 
                 # Run ONNX inference
                 ort_outs = self.session.run(["logits", "act_logits"], ort_inputs)
@@ -816,7 +844,7 @@ class ONNXAgent(HookRegistry):
                 # Compute softmax for actions manually in numpy
                 act_exp = np.exp(act_logits - np.max(act_logits, axis=-1, keepdims=True))
                 act = act_exp / np.sum(act_exp, axis=-1, keepdims=True)
-                att = b["attention_mask"]
+                att = ort_inputs["attention_mask"]
 
                 row = 0
                 for index, items in zip(indices, per_state_items):

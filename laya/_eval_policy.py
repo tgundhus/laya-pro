@@ -24,10 +24,10 @@ def _finite_number(value: Any) -> bool:
 def load_policy(path: str) -> Dict[str, Any]:
     """Read and validate a small, versioned JSON gate before a checkpoint is loaded."""
     try:
-        with open(path, "r", encoding="utf-8") as handle:
+        with open(path, "r", encoding="utf-8-sig") as handle:
             policy = json.load(handle)
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise evals.EvalError("invalid gate policy %r: %s" % (path, exc)) from exc
+    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
+        raise evals.EvalError("invalid --gate-policy %r: %s" % (path, exc)) from exc
     if not isinstance(policy, dict) or set(policy) != {"version", "rules"}:
         raise evals.EvalError("gate policy needs exactly 'version' and 'rules'")
     if type(policy["version"]) is not int or policy["version"] != 1:

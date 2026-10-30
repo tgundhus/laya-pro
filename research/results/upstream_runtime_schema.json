@@ -1,0 +1,197 @@
+{
+  "baseline": "55efeaa87ea10c334eefd0f7b5ac5fc84a1772ad",
+  "candidate_source_sha256": {
+    "laya/agent.py": "938f75fd23ec8e09251dc5231e903e8544ee664722f624955924c1baf03058f9",
+    "laya/common.py": "ebdd39aa57cd3869561643c270cb0fb544a65d01050e9bf69dd0bef1c2ac9b46",
+    "laya/onnx_agent.py": "85f20b1623e17b22e58795bca9e1b40af9090995612cc779bf2edcedb6ead897",
+    "laya/router.py": "8a3b50d897bdaceecd1018811cb40ed2336f3d83245cd136dcfcdab2f9ea955c"
+  },
+  "environment": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "torch": "2.14.1+cpu",
+    "numpy": "2.5.3",
+    "torch_threads": 2,
+    "interop_threads": 1,
+    "omp_threads": "2",
+    "mkl_threads": "2"
+  },
+  "microbenchmarks": [
+    {
+      "name": "router_schema_4states_2options_sharedTrue",
+      "loops_per_sample": 30,
+      "warmups": 3,
+      "before_median_ms": 0.04065666968623797,
+      "after_median_ms": 0.02795999947314461,
+      "before_mad_ms": 0.0015766709111630917,
+      "after_mad_ms": 0.0013833361056943723,
+      "median_paired_saving_ms": 0.012933334801346064,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 0.03907999877507488,
+          "after": 0.028439999247590702
+        },
+        {
+          "after": 0.03205999964848161,
+          "before": 0.04093000122035543
+        },
+        {
+          "before": 0.045246665831655264,
+          "after": 0.02795999947314461
+        },
+        {
+          "after": 0.025446666404604912,
+          "before": 0.038380001205950975
+        },
+        {
+          "before": 0.052253331523388624,
+          "after": 0.0282633351162076
+        },
+        {
+          "after": 0.02920999734972914,
+          "before": 0.04065666968623797
+        },
+        {
+          "before": 0.04171999947478374,
+          "after": 0.026576663367450237
+        },
+        {
+          "after": 0.02612000098451972,
+          "before": 0.03817333296562234
+        },
+        {
+          "before": 0.03952666884288192,
+          "after": 0.025216664653271437
+        }
+      ],
+      "outputs_exact": true,
+      "schema_serializations": {
+        "before": 4,
+        "after": 1
+      },
+      "question_schema_identity": "unchanged typed, order-preserving _question_schema; call-local reference only"
+    },
+    {
+      "name": "router_schema_64states_20options_sharedTrue",
+      "loops_per_sample": 30,
+      "warmups": 3,
+      "before_median_ms": 1.3771933309423428,
+      "after_median_ms": 0.28221999915937585,
+      "before_mad_ms": 0.04328666254878044,
+      "after_mad_ms": 0.029633333906531334,
+      "median_paired_saving_ms": 1.101023331284523,
+      "after_faster_pairs": 9,
+      "pairs_ms": [
+        {
+          "before": 1.0574133329403896,
+          "after": 0.3118533330659072
+        },
+        {
+          "after": 0.2703633314619462,
+          "before": 1.2930633344997962
+        },
+        {
+          "before": 1.3980199970925848,
+          "after": 0.2753333343813817
+        },
+        {
+          "after": 0.28221999915937585,
+          "before": 1.3339066683935623
+        },
+        {
+          "before": 1.3771933309423428,
+          "after": 0.31103000122432906
+        },
+        {
+          "after": 0.3753333313701053,
+          "before": 1.6754066649203498
+        },
+        {
+          "before": 1.3417999997424583,
+          "after": 0.24077666845793524
+        },
+        {
+          "after": 0.2498333342373371,
+          "before": 1.4035933301784098
+        },
+        {
+          "before": 1.5006933361291885,
+          "after": 0.37471333441014093
+        }
+      ],
+      "outputs_exact": true,
+      "schema_serializations": {
+        "before": 64,
+        "after": 1
+      },
+      "question_schema_identity": "unchanged typed, order-preserving _question_schema; call-local reference only"
+    },
+    {
+      "name": "router_schema_64states_20options_sharedFalse",
+      "loops_per_sample": 30,
+      "warmups": 3,
+      "before_median_ms": 1.4328699985829492,
+      "after_median_ms": 1.2379066669382155,
+      "before_mad_ms": 0.21430333144962788,
+      "after_mad_ms": 0.09009999921545386,
+      "median_paired_saving_ms": 0.09252333547919989,
+      "after_faster_pairs": 6,
+      "pairs_ms": [
+        {
+          "before": 1.4328699985829492,
+          "after": 1.3092700003956754
+        },
+        {
+          "after": 1.217770002161463,
+          "before": 1.5256100023786228
+        },
+        {
+          "before": 1.5230899987121422,
+          "after": 1.6854933346621692
+        },
+        {
+          "after": 1.1566433318269749,
+          "before": 1.088700001128018
+        },
+        {
+          "before": 1.2185666671333213,
+          "after": 1.1405033331053953
+        },
+        {
+          "after": 1.2379066669382155,
+          "before": 1.343833333036552
+        },
+        {
+          "before": 1.1389833331728976,
+          "after": 1.1478066677227616
+        },
+        {
+          "after": 1.6595399977328877,
+          "before": 2.2199600003659725
+        },
+        {
+          "before": 1.6471833339892328,
+          "after": 1.554659998510033
+        }
+      ],
+      "outputs_exact": true,
+      "schema_serializations": {
+        "before": 64,
+        "after": 64
+      },
+      "question_schema_identity": "unchanged typed, order-preserving _question_schema; call-local reference only"
+    }
+  ],
+  "checkpoint": null,
+  "memory_note": "tracemalloc is Python-visible peak, not native Torch allocator or process RSS",
+  "seed": 29018,
+  "reproduction_harness_sha256": "26b741bb49e400f695e722a423ea01bfa3cfc9cf6336d5caa4cb668247412cbb",
+  "final_review_source_sha256": {
+    "laya/agent.py": "674bf72c505eeafad2e1a1eb02c7e78e5ad3b36ee251d68c6721aec9be8bee35",
+    "laya/common.py": "ebdd39aa57cd3869561643c270cb0fb544a65d01050e9bf69dd0bef1c2ac9b46",
+    "laya/onnx_agent.py": "b45a6271fc26c61f7462752e5e694c35933c804b3bd59a0bc8422e83b2edf391",
+    "laya/consistency.py": "12d878604c995f8abf17273e61ea706c3d0bef9ca7c78c112b5481c7a907145f"
+  }
+}
