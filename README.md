@@ -78,6 +78,8 @@ multilingual or task-specific checkpoint. Explicit `model` and `lang` overrides 
 - **Less inference overhead:** reuse question tokens and recent language detections.
 - **Deployment controls:** enable the decision cache in HTTP and local MCP, with cache
   statistics and configured retention.
+- **Performance modes:** five opt-in budgets for threads, batching and resident models across
+  Python, CLI, HTTP and local MCP. Existing defaults remain when no mode is selected.
 
 The cache stores request hashes and result payloads, including option labels and probabilities.
 It does not store the original request text. Expiry prevents replay; physical deletion requires
@@ -111,6 +113,12 @@ LAYA_CACHE_MAXSIZE=100000
 
 The same cache variables apply to `laya-mcp-server`. Authentication, request bounds,
 concurrency and offline setup are covered in the [deployment guide](https://github.com/tgundhus/laya-pro/blob/main/docs/production.md).
+
+Use `Router(performance_mode=2)`, `laya --performance-mode 2`, or
+`LAYA_PERFORMANCE_MODE=2` in the engine's environment to choose a resource budget.
+Explicit settings override profile values; `performance_mode="default"` ignores the environment
+for an instance. Modes keep the same model and precision. Higher modes are not necessarily
+faster on your hardware. [Mode budgets and measurements](https://github.com/tgundhus/laya-pro/blob/main/docs/performance-modes.md).
 
 ## Measurements
 

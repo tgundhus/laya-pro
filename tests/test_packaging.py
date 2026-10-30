@@ -484,9 +484,17 @@ check_true("nix/core name tables are both populated",
            "DEFAULT_MODELS=%r _ALIASES=%r -- laya/router.py changed shape" % (canonical, aliases))
 check("nix/models default is exactly core's canonical checkpoints",
       sorted(n.strip('"') for n in
-             re.findall(r'default = \[([^\]]*)\]', block, re.S)[0].split())
-      if re.search(r"default = \[", block) else None,
+             re.findall(r'default = if cfg\.performanceMode == null then \[([^\]]*)\] else \[\];',
+                        block, re.S)[0].split())
+      if re.search(r"default = if cfg\.performanceMode == null then \[", block) else None,
       sorted(canonical))
+check_true("nix/models preset default permits bounded preloads",
+           re.search(r'default = if cfg\.performanceMode == null then \[[^\]]*\] else \[\];',
+                     block, re.S) is not None,
+           "the preset must leave LAYA_MODELS empty so the server can bound its automatic preload")
+check_true("nix/performance mode reaches the server",
+           "LAYA_PERFORMANCE_MODE = toString cfg.performanceMode;" in nix_module,
+           "the mode option must be forwarded to the serving process")
 
 # Whatever the module tells its reader to type must be what core accepts, and the module runs no
 # validator of its own -- so a name added to _ALIASES has to appear here or the option's own

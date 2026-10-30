@@ -42,6 +42,7 @@ from collections.abc import Sequence as SequenceABC
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from .confidence import apply_confidence_gate, check_min_confidence
+from .performance import _apply_torch_threads, _without_torch_threads, resolve_performance_mode
 from .hooks import (
     HookRegistry, PredictContext, aggregate_usage, compose_hooks, dispatch, normalise_hooks,
     validate_timeout,
@@ -449,6 +450,7 @@ _ROUTER_OWNED_AGENT_ARGS = frozenset({
     "model_id_or_path", "device", "token", "subfolder", "revision",
     "hooks", "on_predict_start", "on_predict_end", "hooks_raise", "hooks_concurrent",
     "hooks_timeout",
+    "performance_mode",
 })
 
 
@@ -625,6 +627,12 @@ class Router(HookRegistry):
     `auto_task_detection`, an explicit `model=` or an explicit `task=` can reach
     `typed-decisions` as well.
 
+    `performance_mode=1..5` opts into resource presets; omitting it reads
+    `LAYA_PERFORMANCE_MODE`, and explicit "default" disables that environment preset.
+    Explicit `max_loaded`/`preload` override the preset. Automatic preload respects the
+    resident cap, while explicit `preload=True` keeps the preload-all behavior below.
+    A mode sets Torch's process-global thread budget at startup; lazy loads inherit it.
+
     For a server or a demo, preload instead: a cold load costs seconds, while detection costs
     microseconds, so even the default still pays a load the first time a language appears.
 
@@ -737,6 +745,8 @@ class Router(HookRegistry):
     hooks_timeout = None
     _hooks_lock = None
     agent_kwargs: Dict[str, Any] = {}
+    performance_config = None
+    performance_mode = None
 
     def __init__(
         self,
@@ -745,11 +755,11 @@ class Router(HookRegistry):
         token: Optional[str] = None,
         revision: Optional[str] = None,
         revisions: Optional[Dict[str, Optional[str]]] = None,
-        max_loaded: int = 2,
+        max_loaded: Optional[int] = None,
         default: str = "english",
         auto_task_detection: bool = False,
         standalone_repos: bool = False,
-        preload: bool = False,
+        preload: Optional[bool] = None,
         lang_guess: Optional[Any] = None,
         hooks=None,
         on_predict_start=None,
@@ -759,7 +769,14 @@ class Router(HookRegistry):
         hooks_timeout: Optional[float] = None,
         agent_kwargs: Optional[Dict[str, Any]] = None,
         sha256_digests: Optional[Dict[str, Optional[Dict[str, str]]]] = None,
+        *,
+        performance_mode=None,
     ):
+        self.performance_config = resolve_performance_mode(performance_mode)
+        self.performance_mode = self.performance_config["mode"] if self.performance_config else None
+        automatic_preload = preload is None and bool(self.performance_config and self.performance_config["preload"])
+        if max_loaded is None:
+            max_loaded = self.performance_config["max_loaded"] if self.performance_config else 2
         self.hooks = normalise_hooks(hooks, on_predict_start, on_predict_end)
         self.hooks_raise = bool(hooks_raise)
         self.hooks_concurrent = bool(hooks_concurrent)
@@ -822,8 +839,14 @@ class Router(HookRegistry):
         self._lock = threading.RLock()
         self._build_lock = threading.Lock()
         self._loading: Dict[str, _InFlightBuild] = {}
+        _apply_torch_threads(self.performance_config)
         if preload:
             self.preload()
+        elif automatic_preload:
+            names = [self.default] + [n for n in self.models if n != self.default]
+            self.preload([n for n in names if self.models[n] is not None][:self.max_loaded])
+        if self.performance_config:
+            self.performance_config.update(max_loaded=self.max_loaded, preload=bool(preload or automatic_preload))
 
     # ------------------------------------------------------------------ registry
     def resolve(self, name: Any) -> str:
@@ -1059,7 +1082,14 @@ class Router(HookRegistry):
                                                _digest_entry(self.sha256_digests, key))
             if expected is not None:
                 kwargs["expected_sha256"] = expected
-        return Agent(repo, **kwargs)
+        kwargs["performance_mode"] = self.performance_mode if self.performance_mode is not None else "default"
+        # The Router owns the process-global startup budget. A later lazy load must not
+        # reset threads that another runtime in the same process deliberately changed.
+        with _without_torch_threads():
+            agent = Agent(repo, **kwargs)
+        if self.performance_config:
+            agent.performance_config = dict(self.performance_config)
+        return agent
 
     def _touch(self, key: str):
         with self._lock:
@@ -1148,6 +1178,8 @@ class Router(HookRegistry):
             if not already:
                 # load() dispatches on_load outside the lock; do not hold it across the call.
                 self.load(n)
+        if self.performance_config:
+            self.performance_config.update(max_loaded=self.max_loaded, preload=True)
         return self
 
     def _unload_key(self, key: str) -> List[str]:
@@ -1553,6 +1585,8 @@ class Router(HookRegistry):
                     without one and warned about, not failed; that is a signature check, not a
                     swallowed error.
         """
+        if batch_size is None and self.performance_config:
+            batch_size = self.performance_config["batch_size"]
         token = _SCAN.set(_ScanLong(window=window, stride=stride, aggregate=aggregate,
                                     batch_size=batch_size, lang=lang))
         try:
@@ -1733,6 +1767,8 @@ class Router(HookRegistry):
         """
         if diagnostics is not None and not isinstance(diagnostics, dict):
             raise TypeError("diagnostics must be a dict or None")
+        if batch_size is None and self.performance_config:
+            batch_size = self.performance_config["batch_size"]
         mc = check_min_confidence(min_confidence) if min_confidence is not None else None
         decisions = self.route_batch(requests, hooks=hooks, hooks_raise=hooks_raise, hooks_timeout=hooks_timeout)
         if not decisions:

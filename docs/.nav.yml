@@ -13,6 +13,7 @@ nav:
       - glob: "*"
         ignore_no_matches: true
   - Deployment:
+      - performance-modes.md
       - production.md
       - docker.md
       - docker-platforms.md

@@ -85,6 +85,8 @@ The main controls are:
   forcing it.
 - `--task NAME` forces the typed-decisions workflow instead of detecting it.
 - `--device cpu|cuda|...` passes a device choice to the Router.
+- `--performance-mode 1|2|3|4|5|default` chooses a resource profile; `default` ignores
+  `LAYA_PERFORMANCE_MODE`. Without either setting, existing defaults remain.
 - `--json` emits machine-readable output.
 - `--explain` adds language-detection diagnostics to routing output, including the
   analysis stage and the source path when a nested field changes the result.
@@ -270,6 +272,8 @@ the server is ready.
 | Variable | Default | Meaning |
 |---|---|---|
 | `LAYA_DEVICE` | automatic | Device preference passed to PyTorch, such as `cpu` or `cuda`. Case is normalized; values PyTorch refuses or rewrites to another device are rejected. |
+| `LAYA_PERFORMANCE_MODE` | unset | Opt-in resource profile `1`–`5`, or `default` for existing defaults. Sets thread, batch, resident-model and preload budgets for local inference. Explicit existing settings override profile values. |
+| `LAYA_MAX_LOADED` | Router default | Maximum resident checkpoints. Overrides the profile's model cap. |
 | `LAYA_PRELOAD` | `1` | Build the configured checkpoints at startup. Set to `0` for lazy loading. |
 | `LAYA_MODELS` | `english,multilingual` | Comma-separated checkpoints to preload. An empty value keeps the MCP default rather than preloading every checkpoint. |
 | `LAYA_THREADS` | PyTorch default | Caps Torch intra-op threads for CPU inference; keep it at or below the physical core count. |
@@ -278,6 +282,11 @@ the server is ready.
 | `LAYA_BASE_URL` | unset | Send predictions to a `laya-serve` on your own hardware instead of loading checkpoints in each MCP process. A bare `host:port` is read as HTTP. |
 | `LAYA_REMOTE_TIMEOUT` | `300` | HTTP timeout in seconds when `LAYA_BASE_URL` is set, including the server's cold load. Invalid or non-positive values use the default. |
 | `LAYA_USER_AGENT` | `laya-pro/<version>` | HTTP client identity in remote mode. Empty values use the default; invalid header characters are refused. Custom `RemoteRouter(user_agent=...)` overrides the environment. |
+
+`laya_status` includes `performance_mode` and `performance_config` (both null without a profile).
+The configuration reports effective budgets and overrides. Torch thread changes affect the
+whole process; choose the mode at startup. The [mode guide](performance-modes.md) lists all five
+budgets, Python examples and the limits of the measurements.
 
 ### Share one model server across MCP sessions
 
@@ -306,6 +315,10 @@ Heterogeneous batches send one `/v1/systemone` request per item, preserving inpu
 server's `/health`; `laya_route` and `laya_route_batch` stay local and need no model or HTTP request.
 The MCP process imports no torch and loads no checkpoint, including when `LAYA_THREADS` or
 `LAYA_PRELOAD` is set.
+
+In remote mode, status reports the HTTP server's `performance_mode` and `performance_config`.
+Set `LAYA_PERFORMANCE_MODE` on that server; a profile in the MCP process does not change
+remote resources.
 
 Set the same `LAYA_API_KEY` in both processes when the server requires a bearer token. Keep
 `LAYA_DEFAULT_MODEL` and `LAYA_AUTO_TASK` aligned so local routing previews match the server's

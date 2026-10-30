@@ -43,6 +43,13 @@ models and loses in-process reuse. `max_loaded` bounds resident checkpoints. For
 weights, pass `models={"english": "/path/to/checkpoint"}` and select `model="english"`.
 If the workload uses other languages, configure their checkpoint paths too.
 
+Use `Router(performance_mode=2)` for a smaller resource budget, or set
+`LAYA_PERFORMANCE_MODE=2` before starting a Python, HTTP or local MCP engine.
+With the variable unset, defaults are unchanged; `performance_mode="default"` ignores it for
+an instance. Explicit existing settings take precedence. The [five modes](performance-modes.md)
+control resources without changing models, precision or cache policy. Remote HTTP clients and
+MCP sessions use the server's resource settings.
+
 Schema helpers and framework adapters are covered in [structured decisions](structured.md),
 [LangChain / LangGraph](langchain.md), [LlamaIndex](llamaindex.md) and [CrewAI](crewai.md).
 The optional `agno` extra adds Agno 3.x routing and guardrails (tested with 3.1.12). `LayaAgnoRouter(agent=router)`

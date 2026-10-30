@@ -75,6 +75,13 @@ for label, fn in (("Agent.__init__", Agent.__init__), ("load", load),
                   ("Router.__init__", Router.__init__), ("ONNXAgent.__init__", ONNXAgent.__init__)):
     for param, default in HOOK_KEYS.items():
         check_param(label, fn, param, default)
+    check_param(label, fn, "performance_mode", None, inspect.Parameter.KEYWORD_ONLY)
+
+check_param("Router.__init__", Router.__init__, "max_loaded", None)
+check_param("Router.__init__", Router.__init__, "preload", None)
+for _performance_helper in ("parse_performance_mode", "resolve_performance_mode"):
+    check_true("laya/%s exported" % _performance_helper,
+               _performance_helper in laya.__all__ and callable(getattr(laya, _performance_helper, None)))
 
 for label, fn in (("Agent.__init__", Agent.__init__), ("load", load)):
     check_param(label, fn, "compile_warmup", True)
@@ -134,7 +141,9 @@ check_param("ONNXAgent.__init__", ONNXAgent.__init__, "token", None)
 
 # --------------------------------------------------------------- predict surfaces
 from laya.mcp.remote import RemoteRouter  # noqa: E402
+from laya.mcp.tools import laya_status as _mcp_status  # noqa: E402
 
+check_param("mcp.laya_status", _mcp_status, "performance_mode", None, inspect.Parameter.KEYWORD_ONLY)
 check_true("RemoteRouter/is a Router", issubclass(RemoteRouter, Router))
 check_param("RemoteRouter.__init__", RemoteRouter.__init__, "base_url", inspect.Parameter.empty)
 check_param("RemoteRouter.__init__", RemoteRouter.__init__, "api_key", None)
@@ -1049,6 +1058,14 @@ for path, name, anchor in BUDGET[1:]:
 # body -- and a caller that was told "no" on one path would be ignored on the other.
 from laya.integrations.langchain import _hook_kwargs as _lc_hook_kwargs  # noqa: E402
 from laya.serve import BODY_CONTROLS as _http_controls, BODY_REFUSALS as _http_refusals  # noqa: E402
+from laya.serve import build_router as _build_http_router, create_app as _create_http_app  # noqa: E402
+from laya.serve import main as _http_main  # noqa: E402
+from laya.cli import main as _cli_main  # noqa: E402
+
+check_param("serve.build_router", _build_http_router, "performance_mode", None)
+check_param("serve.create_app", _create_http_app, "performance_mode", None, inspect.Parameter.KEYWORD_ONLY)
+check_param("serve.main", _http_main, "argv", None)
+check_param("cli.main", _cli_main, "argv", None)
 
 check("serve/BODY_REFUSALS is the hook argument set LangChain refuses", sorted(_http_refusals),
       sorted(_lc_hook_kwargs(hooks=[object()], on_predict_start=object(),

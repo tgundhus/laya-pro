@@ -337,6 +337,7 @@ These apply to the `laya-serve` service only.
 | `LAYA_PRELOAD` | `0` | `1` builds every checkpoint at startup instead of on first request |
 | `LAYA_MODELS` | (all) | comma list to preload: `english,multilingual,typed-decisions` |
 | `LAYA_THREADS` | `OMP_NUM_THREADS` | caps torch intra-op threads; keep at or below physical cores |
+| `LAYA_PERFORMANCE_MODE` | unset | Optional [resource preset](performance-modes.md), `1`–`5`, or `default` for current behavior. The example's explicit thread and preload settings override the preset |
 | `LAYA_AUTO_TASK` | `0` | `1` lets the router reach `typed-decisions` automatically |
 | `LAYA_DEFAULT_MODEL` | `english` | Checkpoint a state with no language evidence falls back to (no letters, or Latin text too short to identify). Set `multilingual` for mostly non-English traffic; an unresolvable name stops the container at startup instead of serving a configuration nobody asked for |
 | `LAYA_MAX_LOADED` | `2` | Checkpoints kept resident; `LAYA_AUTO_TASK` makes a third reachable on demand, and a cap below what routing chooses rebuilds one per switch |

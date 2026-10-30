@@ -94,6 +94,16 @@ def min_confidence_value(value):
         raise argparse.ArgumentTypeError(str(error)) from None
 
 
+def performance_mode_value(value):
+    """Keep an explicit `default` distinct from an omitted flag/environment fallback."""
+    from laya.performance import parse_performance_mode
+
+    try:
+        return parse_performance_mode(value) or "default"
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from None
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="laya",
@@ -129,6 +139,9 @@ def build_parser():
                              " low-confidence; the answer itself is kept, so this asks for a warning"
                              " rather than a refusal. Needs --predict, --preset or --questions.")
     parser.add_argument("--device", help="torch device, e.g. cpu or cuda")
+    parser.add_argument("--performance-mode", type=performance_mode_value, metavar="{default,1,2,3,4,5}",
+                        help="startup resource preset (1=minimal, 5=dedicated); omitted inherits "
+                             "LAYA_PERFORMANCE_MODE, or keeps current defaults. 'default' ignores the environment preset")
     parser.add_argument("--json", action="store_true", help="print the raw result as JSON")
     parser.add_argument("--explain", action="store_true",
                         help="include language-detection reasons and sources in routing mode (no model loading)")
@@ -147,7 +160,22 @@ def build_parser():
 
 
 def make_router(args):
-    return laya.Router(device=args.device, preload=False)
+    from laya.performance import resolve_performance_mode
+
+    config = resolve_performance_mode(getattr(args, "performance_mode", None))
+    options = {"device": args.device}
+    if config is not None:
+        options["performance_mode"] = config["mode"]
+    elif getattr(args, "performance_mode", None) is not None:
+        options["performance_mode"] = "default"
+    # Routing stays checkpoint-free. Only an answering mode can opt into preset preloading.
+    if config is None or not (args.predict or args.preset or getattr(args, "questions", None)):
+        options["preload"] = False
+    router = laya.Router(**options)
+    effective = getattr(router, "performance_config", None)
+    if effective is not None:
+        print("laya performance: " + json.dumps(effective, sort_keys=True), file=sys.stderr)
+    return router
 
 
 def load_questions(path):
@@ -262,8 +290,8 @@ def resolve_questions(args):
 
 def run(text, args, router=None):
     """Route or predict one request; returns 0 on success, 2 on a handled error."""
-    router = router or make_router(args)
     try:
+        router = router or make_router(args)
         if args.predict or args.preset or args.questions:
             questions, state_key = resolve_questions(args)
             # Each preset's instructions name the field they read -- `` `message` ``,
@@ -364,12 +392,12 @@ def _note_sort_report(report, total):
 def run_batch(lines, args, router=None):
     """Route or predict a whole file in one call, so states share checkpoint loads and
     forward passes; returns 0 on success, 2 on a handled error."""
-    router = router or make_router(args)
     overrides = {key: value for key, value in (("model", args.model), ("task", args.task),
                                                ("lang", args.lang),
                                                ("lang_guess", args.lang_guess))
                  if value is not None}
     try:
+        router = router or make_router(args)
         if args.predict or args.preset or getattr(args, "questions", None):
             questions, key = resolve_questions(args)
             # Router.predict_batch reads the token budget per request (#583).
@@ -383,7 +411,9 @@ def run_batch(lines, args, router=None):
                 # an attached agent that predates the knob keeps working for every run that does
                 # not request it.
                 kwargs["sort_by_length"] = True
-                chunk = args.batch_size if args.batch_size and args.batch_size > 0 else len(lines)
+                configured = getattr(router, "performance_config", None) or {}
+                size = args.batch_size if args.batch_size is not None else configured.get("batch_size")
+                chunk = size if size and size > 0 else len(lines)
                 if _takes_predict_diagnostics(router):
                     # The reorder switches per checkpoint/question group inside core, so the
                     # file's line count is only an upper bound on the denominators that decide
@@ -456,6 +486,13 @@ def main(argv=None):
         from .train_cli import main as train_main
         return train_main(argv[1:])
     args = build_parser().parse_args(argv)
+    from laya.performance import resolve_performance_mode
+
+    try:
+        resolve_performance_mode(args.performance_mode)
+    except ValueError as error:
+        print("laya: %s" % error, file=sys.stderr)
+        return 2
     # Redirected output is encoded with the locale's codec by default (cp1252 on Windows), which
     # cannot hold a non-Latin request or answer, so `laya --batch FILE > out.txt` failed with a
     # codec error instead of writing it. utf-8 is what --batch reads back.
@@ -487,7 +524,11 @@ def main(argv=None):
             return 2
         return run_batch(lines, args)
     if not text:
-        return interactive(args)
+        try:
+            return interactive(args)
+        except (ValueError, ImportError, OSError, RuntimeError) as error:
+            print("laya: could not start Laya (%s)." % error, file=sys.stderr)
+            return 2
     return run(text, args)
 
 

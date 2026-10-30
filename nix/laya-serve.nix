@@ -44,6 +44,13 @@ in
       description = "TCP port to listen on.";
     };
 
+    performanceMode = lib.mkOption {
+      type = lib.types.nullOr (lib.types.ints.between 1 5);
+      default = null;
+      example = 3;
+      description = "Resource preset, from 1 (minimal) to 5 (dedicated). null preserves existing defaults.";
+    };
+
     rootPath = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
@@ -134,11 +141,12 @@ in
 
     models = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [ "english" "multilingual" "typed-decisions" ];
+      default = if cfg.performanceMode == null then [ "english" "multilingual" "typed-decisions" ] else [];
       description = ''
         Checkpoints to preload at startup. All three fit comfortably in a 24 GB
         card (~1.16B params total), so the default keeps every one hot and makes
-        language routing free.
+        language routing free. Selecting performanceMode leaves this empty so
+        the preset chooses a bounded preload list instead.
 
         The names are validated by laya rather than by this module: the list is
         joined into `LAYA_MODELS`, and the server normalises every entry with
@@ -152,9 +160,9 @@ in
     };
 
     preload = lib.mkOption {
-      type = lib.types.bool;
-      default = true;
-      description = "Build the checkpoints at startup rather than lazily on first request.";
+      type = lib.types.nullOr lib.types.bool;
+      default = if cfg.performanceMode == null then true else null;
+      description = "Build checkpoints at startup. null uses the selected performance preset.";
     };
 
     idleUnloadSeconds = lib.mkOption {
@@ -396,10 +404,13 @@ in
         LAYA_HOST = cfg.host;
         LAYA_PORT = toString cfg.port;
         LAYA_DEVICE = cfg.device;
-        LAYA_PRELOAD = if cfg.preload then "1" else "0";
         LAYA_MODELS = lib.concatStringsSep "," cfg.models;
         LAYA_AUTO_TASK = if cfg.autoTaskDetection then "1" else "0";
         LAYA_JEV_STRICT = if cfg.jevStrict then "1" else "0";
+      } // lib.optionalAttrs (cfg.performanceMode != null) {
+        LAYA_PERFORMANCE_MODE = toString cfg.performanceMode;
+      } // lib.optionalAttrs (cfg.preload != null) {
+        LAYA_PRELOAD = if cfg.preload then "1" else "0";
       } // lib.optionalAttrs (cfg.threads != null) {
         LAYA_THREADS = toString cfg.threads;
         OMP_NUM_THREADS = toString cfg.threads;

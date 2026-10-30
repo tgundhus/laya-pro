@@ -29,6 +29,8 @@ Everything is environment variables, so one image serves a laptop dev run and a 
 | `LAYA_PORT` | bind port | `8000` |
 | `LAYA_ROOT_PATH` | public URL prefix when served behind a reverse proxy | empty |
 | `LAYA_DEVICE` | torch device for every checkpoint | auto |
+| `LAYA_PERFORMANCE_MODE` | opt-in resource profile `1`–`5`, or `default` to retain existing defaults; explicit settings override profile values | unset |
+| `LAYA_MAX_LOADED` | maximum resident checkpoints; overrides a profile's model cap | Router default |
 | `LAYA_PRELOAD` | build the checkpoints at startup, not lazily | `1` |
 | `LAYA_MODELS` | comma list to preload (`english,multilingual,typed-decisions`); empty = all | all |
 | `LAYA_THREADS` | cap torch intra-op threads on CPU; keep it <= physical cores -- oversubscribing logical cores is a large regression | torch default |
@@ -48,6 +50,13 @@ Everything is environment variables, so one image serves a laptop dev run and a 
 | `LAYA_MAX_BATCH_TOKENS` | tokens one `/v1/systemone/batch` FORWARD PASS may collate (`states` x questions x row width); a larger batch is split into several passes, not refused | `131072` |
 | `LAYA_JEV_STRICT` | serve the strict Jev wire contract: no root `routing`, no per-answer `action` / `answer_confidence`, no `confidence` on noul answers, and `usage` reduced to `input_tokens` + `output_tokens`. For clients that validate the response against the Jev contract with no extra fields | `0` |
 | `LAYA_TOURNAMENT_GROUP` | Opt-in choice elimination on both decision endpoints; integer group size 2–100, otherwise disabled | `0` |
+
+[Performance modes](performance-modes.md) provide coordinated thread, batch, resident-model,
+preload, padded-token and admission budgets. The defaults in this table apply when no profile
+is selected. `LAYA_THREADS`, `LAYA_MAX_LOADED`, `LAYA_PRELOAD`, `LAYA_MAX_CONCURRENT` and
+`LAYA_MAX_BATCH_TOKENS` take precedence over corresponding profile values. Profiles keep the
+same checkpoints, precision, token windows and decision-cache policy. Torch threads are
+process-global; select the profile before starting inference.
 
 For a deployment published under a prefix such as `/laya`, set `LAYA_ROOT_PATH=/laya`.
 FastAPI uses it when generating OpenAPI and Swagger UI URLs. Configure the reverse proxy to
@@ -77,6 +86,7 @@ no `LAYA_API_KEY` set, every caller gets the full payload shown here.
 ```json
 {"status": "ok", "loaded": ["english", "multilingual"], "revisions": {"english": "...", "multilingual": "..."},
  "device": "cuda", "device_is_preference": false,
+ "performance_mode": null, "performance_config": null,
  "checkpoint_devices": {"english": "cuda", "multilingual": "cuda"},
  "cpu_fallbacks": {"english": {"count": 0, "last_reason": null}, "multilingual": {"count": 0, "last_reason": null}}}
 ```
@@ -90,6 +100,9 @@ With idle unloading enabled, authenticated health responses also include `idle_u
 Health probes do not reset that clock. An empty `loaded` list is normal after an idle unload.
 
 - `status` is `ok` whenever the process answers at all. It says nothing about the checkpoints.
+- `performance_mode` is the selected profile number, or null with existing defaults.
+- `performance_config` reports the profile's effective budgets and explicit overrides, or null
+  without a profile. It describes configuration, not measured free memory or throughput.
 - `loaded` lists the checkpoints resident in memory. It is empty until a request builds one, which is
   what `LAYA_PRELOAD=0` leaves the process doing.
 - `revisions` is the artifact revision each resident checkpoint was loaded from, keyed by the same

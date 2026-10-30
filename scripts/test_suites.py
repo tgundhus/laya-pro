@@ -127,6 +127,9 @@ PYTEST_SUITES = [
     "tests/test_mcp_diagnostics.py",
     "tests/test_mcp_patterns.py",
     "tests/test_integrations_adoption.py",
+    "tests/test_performance_modes.py",
+    "tests/test_performance_cli.py",
+    "tests/test_performance_servers.py",
 ]
 
 

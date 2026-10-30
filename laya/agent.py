@@ -56,6 +56,7 @@ from .hooks import (
     normalise_hooks, validate_timeout,
 )
 from .revisions import resolve_revision, snapshot_revision, verify_digests
+from .performance import _apply_torch_threads, resolve_performance_mode
 
 
 def _fix_tokenizer_config(path: str):
@@ -602,6 +603,8 @@ class Agent(HookRegistry):
     _compiled = False
     _reduce_overhead = False
     _gate = _InferenceGate()
+    performance_config = None
+    performance_mode = None
 
     def __init__(
         self,
@@ -625,6 +628,8 @@ class Agent(HookRegistry):
         compile_warmup: bool = True,
         compile_cache: bool = False,
         compile_mode: str = "default",
+        *,
+        performance_mode=None,
     ):
         """Load a Laya checkpoint.
 
@@ -667,7 +672,14 @@ class Agent(HookRegistry):
         `laya.hooks`. `hooks_raise=False` warns and continues when a hook fails,
         `hooks_concurrent=False` serialises hooks that are not safe to run in parallel, and
         `hooks_timeout` bounds each hook call in seconds (None means no limit).
+
+        `performance_mode` selects an opt-in resource budget (1..5), or reads
+        `LAYA_PERFORMANCE_MODE` when omitted. Explicit "default" keeps legacy behavior.
+        Its Torch thread setting is process-global: choose it at process startup.
         """
+        self.performance_config = resolve_performance_mode(performance_mode)
+        self.performance_mode = self.performance_config["mode"] if self.performance_config else None
+        _apply_torch_threads(self.performance_config)
         if backend is not None:
             from .backends import normalise
             backend = normalise(backend)
@@ -1568,6 +1580,8 @@ class Agent(HookRegistry):
             A list of per-state result dicts, each identical in shape to `system_one`'s output and
             aligned with `states` by index.
         """
+        if batch_size is None and self.performance_config:
+            batch_size = self.performance_config["batch_size"]
         mc = check_min_confidence(min_confidence) if min_confidence is not None else None
         active = compose_hooks(self.hooks, hooks, on_predict_start, on_predict_end)
         raise_errors = self.hooks_raise if hooks_raise is None else bool(hooks_raise)
@@ -1824,6 +1838,8 @@ class Agent(HookRegistry):
         window is cut when it is larger than the room a question's head leaves. Test
         `usage["truncated"] > 0` here, not `is True`.
         """
+        if batch_size is None and self.performance_config:
+            batch_size = self.performance_config["batch_size"]
         if state is None:
             raise TypeError("state must not be None; pass a string, dict, or list")
         if not isinstance(questions, dict):
@@ -1909,6 +1925,8 @@ class Agent(HookRegistry):
         # `window_batch_cap`. An explicit batch_size is honoured untouched.
         cap = window_batch_cap(len(windows), budget, max(64, max_len - head_max_len - 8),
                                batch_size)
+        if cap is None and batch_size is not None:
+            cap = batch_size
         results = self.predict_batch(list(windows), questions, batch_size=cap, lang=lang,
                                      **_with_start_probe(hook_kwargs, probe))
         _check_scan_budget(self, evidence, budget, max_len, head_max_len, asked)
@@ -2242,7 +2260,8 @@ def load(model_id_or_path: str = "convaiinnovations/laya", device: Optional[str]
          hooks_timeout: Optional[float] = None,
          calibration: Optional[str] = None, backend: Optional[str] = None,
          onnx_path: Optional[str] = None, compile_warmup: bool = True,
-         compile_cache: bool = False, compile_mode: str = "default") -> Union[Agent, "ONNXAgent"]:
+         compile_cache: bool = False, compile_mode: str = "default", *,
+         performance_mode=None) -> Union[Agent, "ONNXAgent"]:
     """Load a Laya agent.
 
     `subfolder` picks one checkpoint out of a repo that bundles several:
@@ -2267,6 +2286,7 @@ def load(model_id_or_path: str = "convaiinnovations/laya", device: Optional[str]
     `revision`/`expected_sha256` pin and verify the downloaded artifacts; see `Agent`.
     `hooks` / `on_predict_start` / `on_predict_end` observe or shape every prediction; see
     `laya.hooks`. `calibration` is the same optional JSON path accepted by `Agent`.
+    `performance_mode` selects the same opt-in startup resource budget as `Agent`.
     """
     # A registry name or alias resolves to the same (repo, subfolder) the Router would
     # pick, instead of being handed to the Hub as a repo id. A caller who spelled out a
@@ -2289,6 +2309,7 @@ def load(model_id_or_path: str = "convaiinnovations/laya", device: Optional[str]
         return ONNXAgent(model_id_or_path, onnx_path=onnx_path or "laya.onnx",
                          token=token, subfolder=subfolder, revision=revision, expected_sha256=expected_sha256,
                          lang_temperatures=lang_temperatures, calibration=calibration,
+                         performance_mode=performance_mode,
                          hooks=hooks, on_predict_start=on_predict_start, on_predict_end=on_predict_end,
                          hooks_raise=hooks_raise, hooks_concurrent=hooks_concurrent, hooks_timeout=hooks_timeout)
     options = {"backend": backend} if backend is not None else {}
@@ -2299,4 +2320,5 @@ def load(model_id_or_path: str = "convaiinnovations/laya", device: Optional[str]
                  lang_temperatures=lang_temperatures,
                  hooks=hooks, on_predict_start=on_predict_start, on_predict_end=on_predict_end,
                  hooks_raise=hooks_raise, hooks_concurrent=hooks_concurrent,
-                 hooks_timeout=hooks_timeout, calibration=calibration, **options)
+                 hooks_timeout=hooks_timeout, calibration=calibration,
+                 performance_mode=performance_mode, **options)

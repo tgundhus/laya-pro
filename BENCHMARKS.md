@@ -507,3 +507,34 @@ The `noul:2` raw fit (10.2) exceeds `TEMP_MAX`: Chinese binary-judgment over-con
 The [30 October review](docs/reports/upstream-review-2026-10-30.md) records NumPy collation,
 schema reuse and confidence-helper measurements against the Pro baseline. Preparation is faster
 on the measured workloads; the real English checkpoint showed no reliable end-to-end speedup.
+
+## Five performance modes, Windows CPU, 30 October 2026
+
+`research/scripts/bench_performance_modes.py` measured the default and modes 1–5 in separate
+subprocesses with the same cached English checkpoint (`55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851`),
+CPU fp32, eager execution and no decision cache. Host: Intel Family 6 Model 183, 32 logical CPUs,
+Python 3.12.14, Torch 2.14.1+cpu, transformers 5.19.0. One warm-up and three timed calls per
+workload; each state asks one four-option choice and one yes/no question.
+
+| mode | threads | single median / p95 ms | mixed batch4 median / p95 ms | batch requests/s |
+|---|---:|---:|---:|---:|
+| default | 24 | 124.8 / 126.8 | 772.6 / 775.6 | 5.19 |
+| 1, minimal | 1 | 645.4 / 665.4 | 3,244.6 / 3,327.9 | 1.22 |
+| 2, economy | 2 | 326.3 / 326.8 | 1,700.5 / 1,807.6 | 2.30 |
+| 3, balanced | 4 | 204.3 / 212.9 | 1,655.1 / 1,830.6 | 2.38 |
+| 4, throughput | 8 | 282.5 / 290.4 | 1,508.2 / 1,596.9 | 2.65 |
+| 5, dedicated | 16 | 155.2 / 156.0 | 944.5 / 947.4 | 4.25 |
+
+The existing default was fastest here. The modes select resource budgets, not smaller models
+or a guaranteed speedup. All profile labels agreed with default on the ten observed decisions
+(the single case also appears in the batch); maximum unrounded calibrated probability change
+was `1.19e-6`. All configurations matched six of eight hand-written batch labels, which is
+not a representative accuracy evaluation. Native Windows peak working set was 2,737–2,739 MiB,
+including loading; cold Agent load was 1.81–2.15 s with the filesystem cache left intact.
+
+Runs were ordered default, then 1–5, and background workstation load was uncontrolled. Inter-op
+threads remained at 24. With three samples, nearest-rank p95 is the maximum. The benchmark
+does not test multi-model residency, automatic preload, HTTP admission, GPU execution or older
+hardware; its maximum batch was only 760 padded tokens. Full raw outputs, samples, tensor shapes,
+memory counters and pinned artifact/source hashes: `research/results/performance_modes_cpu_20261030.json`.
+The [mode guide](docs/performance-modes.md) documents settings and reproduction.
