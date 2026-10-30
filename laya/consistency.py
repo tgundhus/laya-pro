@@ -853,6 +853,11 @@ class DecisionCache:
         if partial or conflicts:
             ctx.results = merged
             ctx.usage = aggregate_usage(merged)
+            record_scan = getattr(ctx, "_record_scan_cache_results", None)
+            if record_scan is not None:
+                replayed = [i for i, replay in enumerate(replays) if replay is not None]
+                replayed += [i for i, result in zip(computed, results) if merged[i] is not result]
+                record_scan(merged, computed, replayed, dupes)
 
     def prune(self) -> int:
         """Drop every expired decision now, and those over `maxsize`.

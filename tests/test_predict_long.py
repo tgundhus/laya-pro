@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np  # noqa: E402
 
 import laya.agent as agent_mod
+from _long_attribution import check_long_attribution
 from laya.agent import Agent, _check_scan_budget, _start_evidence
 
 from laya.onnx_agent import ONNXAgent  # noqa: E402
@@ -583,6 +584,44 @@ expected = _question_agent().predict_long(LONG, Q)
 actual, exc = _attempt(lambda: _question_agent().predict_long(LONG, Q, on_predict_end=_annotate_first_window))
 check("questions/a first-window end annotation preserves the scan's answers", actual, expected)
 check("questions/a first-window end annotation does not require other windows to match", _kind(exc), None)
+
+def _remove_dept(ctx):
+    for row in ctx.results:
+        del row["answers"]["dept"]
+
+
+check_raises("end removal/a caller question cannot silently disappear from every window", ValueError,
+             lambda: _question_agent().predict_long(LONG, Q, on_predict_end=_remove_dept))
+
+for policy in (True, False):
+    check_raises("end removal/a partial removal is refused with hooks_raise=%s" % policy, ValueError,
+                 lambda: _question_agent().predict_long(
+                     LONG, Q, hooks_raise=policy,
+                     on_predict_end=lambda ctx: ctx.results[0]["answers"].pop("dept")))
+
+check_raises("end removal/a replacement batch cannot silently omit every answer", ValueError,
+             lambda: make_agent(lambda states, q: [{"answers": {}, "usage": {}} for _ in states])
+             .predict_long(LONG, Q))
+
+
+def _add_temporary(ctx):
+    ctx.questions["temporary"] = dict(Q["flag"])
+
+
+def _remove_temporary(ctx):
+    for row in ctx.results:
+        del row["answers"]["temporary"]
+
+
+actual, exc = _attempt(lambda: _question_agent().predict_long(
+    LONG, dict(Q), on_predict_start=_add_temporary, on_predict_end=_remove_temporary))
+check("end removal/an in-place start addition returns after removal", _kind(exc), None)
+check("end removal/an in-place start addition can be uniformly removed",
+      (actual or {}).get("answers"), _question_agent().predict_long(LONG, Q)["answers"])
+check_raises("end removal/a start-added question missing in only one window is refused", ValueError,
+             lambda: _question_agent().predict_long(
+                 LONG, dict(Q), on_predict_start=_add_temporary,
+                 on_predict_end=lambda ctx: ctx.results[0]["answers"].pop("temporary")))
 
 # The recorder must leave invalid input to predict_batch's existing question validation.
 for malformed in (None, [], {"bad": None}, {"bad": {}}, {"bad": {"type": "unknown"}}):
@@ -2013,6 +2052,8 @@ for _doc_name, _doc, _stop in _WINDOW_DOCSTRINGS:
     check_true("floor/%s teaches it as the default, not beside it" % _doc_name,
                _at > -1 and "default" in _para[max(0, _at - 220):_at].lower(), _para[:160])
 
+
+check_long_attribution(make_real_agent, check)
 
 print("\n%d passed, %d failed" % (len(PASS), len(FAIL)))
 for f in FAIL:
