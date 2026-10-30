@@ -28,6 +28,7 @@ from laya.common import (
     window_batch_cap,
     window_budget,
     temp_bucket,
+    temperature_rejected,
     unpermute_probs,
     TEMP_MIN,
     TEMP_MAX,
@@ -209,13 +210,8 @@ class ONNXAgent(HookRegistry):
         entries += [("temperature[%d]" % i, t, self.temperature[i]) for i, t in enumerate(self.temperature_raw)]
         rejected = []
         for name, raw, applied in entries:
-            try:
-                if float(raw) == applied:
-                    continue
-            except (TypeError, ValueError):
-                # Invalid entries already have a neutral fallback; diagnostics must not
-                # repeat the failed conversion or prevent the checkpoint from loading.
-                pass
+            if not temperature_rejected(raw, applied):
+                continue
             rejected.append("%s=%r -> %g" % (name, raw, applied))
         if rejected:
             warnings.warn(

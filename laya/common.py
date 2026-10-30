@@ -9,6 +9,7 @@ from collections import OrderedDict
 from contextlib import nullcontext
 from contextvars import ContextVar
 from functools import wraps
+from numbers import Integral
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -804,7 +805,9 @@ def td_lambda_targets(p_true: torch.Tensor, batch: Dict, lam: float = 1.0) -> to
 
 
 def ece_score(conf: np.ndarray, correct: np.ndarray, bins: int = 15) -> float:
-    """Expected Calibration Error across confidence bins."""
+    """Expected Calibration Error across `bins` histogram buckets, an integer of at least 1."""
+    if isinstance(bins, bool) or not isinstance(bins, Integral) or bins < 1:
+        raise ValueError("bins must be an integer of at least 1, got %r" % (bins,))
     if len(conf) == 0:
         return float("nan")
     edges = np.linspace(0, 1, bins + 1)
@@ -884,6 +887,26 @@ def clamp_temperature(t, lo: float = TEMP_MIN, hi: float = TEMP_MAX) -> float:
     return min(hi, max(lo, t))
 
 
+def temperature_rejected(raw, applied: float) -> bool:
+    """Whether `raw` is not the number `clamp_temperature` turned into `applied`.
+
+    Loaders use this to name the entries they had to replace. The obvious test, `float(raw) !=
+    applied`, misses the bool case: `clamp_temperature(True)` returns the neutral 1.0 and
+    `float(True)` *is* 1.0, so a checkpoint or calibration file shipping `true` where a number
+    belongs read as an accepted temperature and loaded in silence, while `false` floated to 0.0,
+    mismatched and was reported. So ask the question `clamp_temperature` itself asks -- is this a
+    number at all -- instead of re-deriving its answer. A value that will not convert is rejected
+    the same way: it has a neutral fallback to report, and the diagnostic must never raise for it.
+    """
+    if isinstance(raw, bool):
+        return True
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return True
+    return value != applied
+
+
 def resolve_lang_temperatures(raw: Optional[Dict[str, Any]],
                               base_temperature: Sequence[float]) -> Dict[str, Dict[str, Any]]:
     """Parse the `lang_temperatures` option into `{language: {temperature, temperature_by_options}}`.
@@ -899,6 +922,12 @@ def resolve_lang_temperatures(raw: Optional[Dict[str, Any]],
 
     A `null` entry or a `null` temperature both mean "inherit the checkpoint's own", which is how
     the `laya-ts` port reads the same option (`agent.ts:322-327`).
+
+    Every value still goes through `clamp_temperature`, and a value the clamp had to replace is named
+    in a `RuntimeWarning` for its language: `{"de": {"temperature": [True, 1.5, 2.0]}}` answers
+    `[1.0, 1.5, 2.0]` and `[99, 0.01, 1]` answers `[5.0, 0.5, 1.0]`, which is a different confidence
+    scale from the one the caller wrote. `temperature_rejected` is what distinguishes a replaced entry
+    from an accepted one.
     """
     resolved: Dict[str, Dict[str, Any]] = {}
     for lang, cfg in (raw or {}).items():
@@ -911,7 +940,8 @@ def resolve_lang_temperatures(raw: Optional[Dict[str, Any]],
             raise ValueError("Language override %r must be a mapping, got %s"
                              % (lang, type(cfg).__name__))
         t_raw = cfg.get("temperature")
-        if t_raw is None:
+        inherited = t_raw is None
+        if inherited:
             t_raw = base_temperature
         if not isinstance(t_raw, (list, tuple)) or len(t_raw) != 3:
             raise ValueError("Language override %r temperature must be a list of 3 floats, got %r"
@@ -920,9 +950,27 @@ def resolve_lang_temperatures(raw: Optional[Dict[str, Any]],
         if not isinstance(tbo_raw, dict):
             raise ValueError("Language override %r temperature_by_options must be a mapping of "
                              "bucket -> float, got %s" % (lang, type(tbo_raw).__name__))
+        temperature = [clamp_temperature(t) for t in t_raw]
+        by_options = {k: clamp_temperature(v) for k, v in tbo_raw.items()}
+        # An override that omits `temperature` inherits the checkpoint's own list, and the loader
+        # that got here has already reported the entries it replaced in it. Repeating that line once
+        # per language would bury the overrides a reader is actually holding.
+        entries = [] if inherited else [
+            ("temperature[%d]" % i, raw, applied)
+            for i, (raw, applied) in enumerate(zip(t_raw, temperature))
+        ]
+        entries += [("%s" % k, v, by_options[k]) for k, v in tbo_raw.items()]
+        rejected = ["%s=%r -> %g" % (name, raw, applied)
+                    for name, raw, applied in entries if temperature_rejected(raw, applied)]
+        if rejected:
+            warnings.warn(
+                "laya: language override %r ships invalid temperatures or values outside "
+                "[%g, %g]; using %s. Treat confidence from the affected entries as uncalibrated."
+                % (lang, TEMP_MIN, TEMP_MAX, ", ".join(rejected)),
+                RuntimeWarning, stacklevel=2)
         resolved[norm] = {
-            "temperature": [clamp_temperature(t) for t in t_raw],
-            "temperature_by_options": {k: clamp_temperature(v) for k, v in tbo_raw.items()},
+            "temperature": temperature,
+            "temperature_by_options": by_options,
         }
     return resolved
 

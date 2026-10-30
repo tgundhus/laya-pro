@@ -44,6 +44,7 @@ from .common import (
     resolve_lang_temperatures,
     serialize_state,
     temp_bucket,
+    temperature_rejected,
     unpermute_probs,
     uses_parallel_layout,
     window_batch_cap,
@@ -795,13 +796,8 @@ class Agent(HookRegistry):
         entries += [("temperature[%d]" % i, t, self.temperature[i]) for i, t in enumerate(self.temperature_raw)]
         rejected = []
         for name, raw, applied in entries:
-            try:
-                if float(raw) == applied:
-                    continue
-            except (TypeError, ValueError):
-                # Invalid entries already have a neutral fallback; diagnostics must not
-                # repeat the failed conversion or prevent the checkpoint from loading.
-                pass
+            if not temperature_rejected(raw, applied):
+                continue
             rejected.append("%s=%r -> %g" % (name, raw, applied))
         if rejected:
             warnings.warn(
