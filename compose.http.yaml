@@ -66,6 +66,7 @@ services:
       # instead of queued, which is what bounds the bodies a burst holds in memory. Empty keeps
       # the server's own default (16), so this line changes nothing until it is set.
       LAYA_MAX_CONCURRENT: "${LAYA_MAX_CONCURRENT:-}"
+      LAYA_BODY_READ_TIMEOUT: "${LAYA_BODY_READ_TIMEOUT:-}"
       # Ceiling on the `max_len` / `head_max_len` a request may ask for; a larger value comes back
       # as 422. The SDK integrations quote 8192 because that is this service's default, so the
       # default here stays empty: an operator who sets nothing gets the number the docs print.

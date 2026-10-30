@@ -35,7 +35,7 @@ Everything is environment variables, so one image serves a laptop dev run and a 
 | `LAYA_AUTO_TASK` | auto-route to the typed-decisions checkpoint | `0` |
 | `LAYA_IDLE_UNLOAD_SECONDS` | unload resident checkpoints after this many idle seconds; the next request loads its checkpoint again. Zero disables unloading | `0` |
 | `LAYA_DEFAULT_MODEL` | checkpoint a state with no language evidence falls back to; aliases such as `ml` resolve the way core resolves them, and an unresolvable name stops the server at startup | `english` |
-| `LAYA_API_KEY` | if set, require `Authorization: Bearer <key>` | none |
+| `LAYA_API_KEY` | require `Authorization: Bearer <key>` for decisions; interactive docs and OpenAPI routes are disabled | none |
 | `LAYA_EXTRA_MODELS` | JSON map of checkpoint names to local paths or model IDs, registered at startup | none |
 | `LAYA_CACHE` | enable an in-memory decision cache | `0` |
 | `LAYA_CACHE_PATH` | SQLite decision cache file; a path enables the cache | none |
@@ -44,9 +44,10 @@ Everything is environment variables, so one image serves a laptop dev run and a 
 | `LAYA_CACHE_RENEW_ON_HIT` | renew expiry on use | `0` |
 | `LAYA_LOG_LEVEL` | uvicorn log level | `info` |
 | `LAYA_MAX_CONCURRENT` | requests admitted past auth at once; excess gets `503` | `16` |
+| `LAYA_BODY_READ_TIMEOUT` | maximum seconds to receive a request body; timeout answers `408` and releases admission | `10` |
 | `LAYA_MAX_BATCH_TOKENS` | tokens one `/v1/systemone/batch` FORWARD PASS may collate (`states` x questions x row width); a larger batch is split into several passes, not refused | `131072` |
 | `LAYA_JEV_STRICT` | serve the strict Jev wire contract: no root `routing`, no per-answer `action` / `answer_confidence`, no `confidence` on noul answers, and `usage` reduced to `input_tokens` + `output_tokens`. For clients that validate the response against the Jev contract with no extra fields | `0` |
-| `LAYA_TOURNAMENT_GROUP` | Opt-in choice elimination on the single endpoint; integer group size 2–100, otherwise disabled | `0` |
+| `LAYA_TOURNAMENT_GROUP` | Opt-in choice elimination on both decision endpoints; integer group size 2–100, otherwise disabled | `0` |
 
 For a deployment published under a prefix such as `/laya`, set `LAYA_ROOT_PATH=/laya`.
 FastAPI uses it when generating OpenAPI and Swagger UI URLs. Configure the reverse proxy to
@@ -161,7 +162,7 @@ hide that. The detail is the same `unknown model` text core raises, plus the rem
 
 Set `LAYA_TOURNAMENT_GROUP=16` to answer large choices by elimination. Each round reads groups
 of labels; the group winners meet in a final prediction. This admits up to 255 options on the
-single endpoint. Batch inference retains its 100-option cap. Generated calls contain at most
+single and batch endpoints. Batch elimination runs separately for each state. Generated calls contain at most
 64 questions. More rounds cost more inference; benchmark representative questions before enabling it.
 The original question schema selects the checkpoint before elimination; every round keeps that
 checkpoint and its detected language. Route hooks still run on each prediction.
@@ -330,7 +331,7 @@ Rather than refuse a large batch, the endpoint **splits** it: when that product 
 inside the budget, and `Router.predict_batch` runs the batch in several passes. Every state is still
 answered and the response is unchanged. A request whose rows already fit is passed no `batch_size` at
 all, so it behaves exactly as before -- which matters because batch shape can move floating-point
-results. A `batch_size` the caller sends always wins: it asked for a shape.
+results. A caller's `batch_size` may shrink a pass; it is capped at the server's planned size.
 
 At the default, 256 rows go through in one pass -- 64 states of 4 questions, or 8 of 32. Larger
 batches are split, and raising `max_len` makes each pass narrower rather than costing 16 times the

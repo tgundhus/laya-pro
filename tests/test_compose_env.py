@@ -583,8 +583,8 @@ if server_doc:
                     check("docs/docker.md prints the same %s default as laya/serve.py" % _name,
                           _cell.strip("`"), _defaults[_const])
         check_true("core/knobs this change forwards have a module default to pin",
-                   _const_pinned == 3, _const_pinned)
-        for _name in ("LAYA_MAX_CONCURRENT", "LAYA_MAX_TOKEN_BUDGET", "LAYA_MAX_BATCH_TOKENS"):
+                   _const_pinned == 4, _const_pinned)
+        for _name in ("LAYA_MAX_CONCURRENT", "LAYA_MAX_TOKEN_BUDGET", "LAYA_MAX_BATCH_TOKENS", "LAYA_BODY_READ_TIMEOUT"):
             check_true("docs/docker.md keeps the %s row in the server table" % _name,
                        re.search(r"^\| `%s` \|" % _name, _body, re.M) is not None,
                        "the two sections above derive their demand from this table, so a row "
