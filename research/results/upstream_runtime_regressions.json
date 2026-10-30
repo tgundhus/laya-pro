@@ -1,0 +1,92 @@
+{
+  "baseline": "55efeaa87ea10c334eefd0f7b5ac5fc84a1772ad",
+  "seed": 29018,
+  "candidate_source_sha256": {
+    "laya/agent.py": "c38bfe34aa4aeb66407044c99b524a170a03f16538fbd13bb5163931c8705ac6",
+    "laya/common.py": "ebdd39aa57cd3869561643c270cb0fb544a65d01050e9bf69dd0bef1c2ac9b46",
+    "laya/onnx_agent.py": "85f20b1623e17b22e58795bca9e1b40af9090995612cc779bf2edcedb6ead897"
+  },
+  "environment": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "torch": "2.14.1+cpu",
+    "numpy": "2.5.3",
+    "torch_threads": 2,
+    "interop_threads": 1,
+    "omp_threads": "2",
+    "mkl_threads": "2"
+  },
+  "microbenchmarks": [],
+  "checkpoint": null,
+  "memory_note": "tracemalloc is Python-visible peak, not native Torch allocator or process RSS",
+  "correctness_regressions": {
+    "before": {
+      "ece_rejects_zero_bins": false,
+      "timeout_rejects_bool": false,
+      "warns_on_bool_language_temperature": false,
+      "reorder_preserves_deciding_span": false,
+      "allows_uniform_removal_of_start_added_question": false
+    },
+    "after": {
+      "ece_rejects_zero_bins": true,
+      "timeout_rejects_bool": true,
+      "warns_on_bool_language_temperature": true,
+      "reorder_preserves_deciding_span": true,
+      "allows_uniform_removal_of_start_added_question": true
+    }
+  },
+  "preserved_pro_cache_contract": {
+    "before_torch": {
+      "full_hit_span_matches": true,
+      "full_hit_inference_windows": 0,
+      "partial_hit_span": {
+        "index": 0,
+        "token_start": 0,
+        "token_end": 80,
+        "count": 11
+      },
+      "partial_hit_inference_windows": 2
+    },
+    "before_onnx": {
+      "full_hit_span_matches": true,
+      "full_hit_inference_windows": 0,
+      "partial_hit_span": {
+        "index": 0,
+        "token_start": 0,
+        "token_end": 80,
+        "count": 11
+      },
+      "partial_hit_inference_windows": 2
+    },
+    "after_torch": {
+      "full_hit_span_matches": true,
+      "full_hit_inference_windows": 0,
+      "partial_hit_span": {
+        "index": 0,
+        "token_start": 0,
+        "token_end": 80,
+        "count": 11
+      },
+      "partial_hit_inference_windows": 2
+    },
+    "after_onnx": {
+      "full_hit_span_matches": true,
+      "full_hit_inference_windows": 0,
+      "partial_hit_span": {
+        "index": 0,
+        "token_start": 0,
+        "token_end": 80,
+        "count": 11
+      },
+      "partial_hit_inference_windows": 2
+    }
+  },
+  "reproduction_harness_sha256": "26b741bb49e400f695e722a423ea01bfa3cfc9cf6336d5caa4cb668247412cbb",
+  "final_review_source_sha256": {
+    "laya/agent.py": "674bf72c505eeafad2e1a1eb02c7e78e5ad3b36ee251d68c6721aec9be8bee35",
+    "laya/common.py": "ebdd39aa57cd3869561643c270cb0fb544a65d01050e9bf69dd0bef1c2ac9b46",
+    "laya/onnx_agent.py": "b45a6271fc26c61f7462752e5e694c35933c804b3bd59a0bc8422e83b2edf391",
+    "laya/consistency.py": "12d878604c995f8abf17273e61ea706c3d0bef9ca7c78c112b5481c7a907145f"
+  }
+}

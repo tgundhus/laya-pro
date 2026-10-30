@@ -255,4 +255,3 @@ def test_cli_rejects_prediction_modes_before_any_loading(args):
     assert result.returncode == 2
     assert "--explain is for routing only" in result.stderr
     assert result.stdout == ""
-

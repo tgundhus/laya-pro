@@ -502,3 +502,8 @@ Refit on zh-decision-bench (multilingual checkpoint; 50/50 fit/test split by ite
 | noul:2 | 10.23 | 5.00 | 0.180 -> 0.098 |
 
 The `noul:2` raw fit (10.2) exceeds `TEMP_MAX`: Chinese binary-judgment over-confidence outruns the shipped clamp's correction range (NLL still improves, 0.79 -> 0.55).
+# October runtime preparation
+
+The [30 October review](docs/reports/upstream-review-2026-10-30.md) records NumPy collation,
+schema reuse and confidence-helper measurements against the Pro baseline. Preparation is faster
+on the measured workloads; the real English checkpoint showed no reliable end-to-end speedup.

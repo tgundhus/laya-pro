@@ -141,9 +141,9 @@ measurements and verification limits separately from these archived results.
 ## Limits and version policy
 
 This version incorporates upstream **0.3.29** and selected correctness and integration changes
-reviewed through **0.4.2**. The distribution remains 0.3.29 and retains Laya-Pro's English
+reviewed through **0.4.18**. The distribution remains 0.3.29 and retains Laya-Pro's English
 fallback for ambiguous Latin text. This is selected upstream coverage, not complete behavioral
-parity; the [10 October review](https://github.com/tgundhus/laya-pro/blob/main/docs/reports/upstream-review-2026-10-10.md)
+parity; the [30 October review](https://github.com/tgundhus/laya-pro/blob/main/docs/reports/upstream-review-2026-10-30.md)
 records adopted changes, measurements and limits.
 
 Validate accuracy and confidence on representative labelled data. Large choice sets,

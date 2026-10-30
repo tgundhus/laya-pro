@@ -14,11 +14,12 @@ tools to an editor or agent over stdio and can use either a local Router or your
 | Interface | Inference | Batch | Long documents | Pro persistent cache |
 |---|---|---|---|---|
 | Python | PyTorch or ONNX, in process | yes | yes | memory, SQLite or your store |
+| Python HTTP client | your Python server | yes | use Python directly | server policy |
 | TypeScript HTTP client | your Python server | yes | use Python directly | server policy |
 | TypeScript ONNX SDK | Node.js or browser | yes | no | no |
 | Java SDK | ONNX, in process | yes | yes | no |
 | .NET SDK | ONNX, in process | sequential calls | no | no |
-| MCP | local Python or your HTTP server | yes | no | engine policy |
+| MCP | local Python or your HTTP server | yes | in-process scans | engine policy |
 
 Native SDK feature parity varies. Each SDK's README describes its model-export requirements,
 supported methods and calibration limits. A successful build with tiny random models verifies
@@ -44,6 +45,25 @@ If the workload uses other languages, configure their checkpoint paths too.
 
 Schema helpers and framework adapters are covered in [structured decisions](structured.md),
 [LangChain / LangGraph](langchain.md), [LlamaIndex](llamaindex.md) and [CrewAI](crewai.md).
+The optional `agno` extra adds Agno 1.x routing and guardrails. `LayaAgnoRouter(agent=router)`
+selects a member; the application executes it. Local and self-hosted HTTP paths support `task`
+and `lang_guess`, and refuse malformed decisions before selecting an agent.
+
+### Python over HTTP
+
+Install the standalone client with `python -m pip install ./sdk/python`. Its application environment
+needs only the standard library; run the inference server separately.
+
+```python
+from laya_client import LayaClient
+
+client = LayaClient(base_url="http://127.0.0.1:8000", api_key="your-server-token")
+result = client.predict("Please refund the duplicate charge", questions, model="english")
+batch = client.predict_batch(["Payment failed", "Cannot sign in"], questions, batch_size=2)
+```
+
+The [client README](https://github.com/tgundhus/laya-pro/tree/main/sdk/python) covers errors,
+strict response validation, controls and isolated package verification.
 
 ## TypeScript over HTTP
 

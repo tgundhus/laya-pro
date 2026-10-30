@@ -23,6 +23,9 @@ reviewed through Laya 0.4.2, their measured integration costs and the remaining 
 The [12 October upstream review](upstream-review-2026-10-12.md) covers selected changes through
 Laya 0.4.6, mixed-width calibration fixes, TypeScript embedding reuse and tournament integration.
 
+The [30 October upstream review](upstream-review-2026-10-30.md) covers selected changes through
+0.4.18, runtime preparation measurements, HTTP resource bounds, MCP tools and SDK contracts.
+
 The detailed September reports:
 
 - [Consistency: Jev against Laya](consistency-jev-vs-laya.md): what varies between runs, and
