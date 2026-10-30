@@ -266,7 +266,32 @@ def test_evidence_artifacts_name_the_file_or_accept_bom(tmp_path, artifact, shap
         with pytest.raises(ValueError, match=target.name.replace(".", r"\.")) as exc:
             evidence.inspect_checkpoint(str(checkpoint), str(report))
         if shape == "depth":
-            assert "nested deeper" in str(exc.value)
+            # Parser depth limits vary; a parsed array must still fail the object boundary.
+            assert "nested deeper" in str(exc.value) or "not a JSON object" in str(exc.value)
+
+
+@pytest.mark.parametrize("artifact", ["config", "report"])
+def test_evidence_parser_recursion_error_names_the_artifact(tmp_path, monkeypatch, artifact):
+    checkpoint = tmp_path / "checkpoint"
+    checkpoint.mkdir()
+    config = checkpoint / "rl_agent_config.json"
+    config.write_text("{}", encoding="utf-8")
+    report = tmp_path / "report.json"
+    report.write_text("{}", encoding="utf-8")
+    target = config if artifact == "config" else report
+    load = evidence.json.load
+    failure = RecursionError("parser nesting limit")
+
+    def load_artifact(handle, *args, **kwargs):
+        if handle.name == str(target):
+            raise failure
+        return load(handle, *args, **kwargs)
+
+    monkeypatch.setattr(evidence.json, "load", load_artifact)
+    with pytest.raises(ValueError, match="nested deeper") as exc:
+        evidence.inspect_checkpoint(str(checkpoint), str(report))
+    assert str(target) in str(exc.value)
+    assert exc.value.__cause__ is failure
 
 
 def test_not_fitted_calibration_is_not_described_as_fitted():
