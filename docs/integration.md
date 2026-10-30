@@ -45,9 +45,10 @@ If the workload uses other languages, configure their checkpoint paths too.
 
 Schema helpers and framework adapters are covered in [structured decisions](structured.md),
 [LangChain / LangGraph](langchain.md), [LlamaIndex](llamaindex.md) and [CrewAI](crewai.md).
-The optional `agno` extra adds Agno 1.x routing and guardrails. `LayaAgnoRouter(agent=router)`
+The optional `agno` extra adds Agno 3.x routing and guardrails (tested with 3.1.12). `LayaAgnoRouter(agent=router)`
 selects a member; the application executes it. Local and self-hosted HTTP paths support `task`
 and `lang_guess`, and refuse malformed decisions before selecting an agent.
+Set `AGNO_TELEMETRY=false` to disable the framework's telemetry.
 
 ### Python over HTTP
 

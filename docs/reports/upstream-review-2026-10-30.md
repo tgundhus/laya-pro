@@ -28,7 +28,7 @@ decision retention policies. Model weights and deployed calibration are unchange
   checkpoints remain valid on the new paths; remote-only deployments refuse unsupported tools
   before loading a model. Remote requests identify themselves as `laya-pro/<version>` by default.
 - **Integrations:** forward routing hints through the wrappers and reject malformed decisions.
-  The optional Agno 1.x adapter supports local runners and self-hosted HTTP; its remote routing
+  The optional Agno 3.x adapter supports local runners and self-hosted HTTP; its remote routing
   hints now reach the wire. Unknown agents and incomplete guardrail answers are refused.
 - **SDKs:** native TypeScript adds structured batches, answer confidence, strict option ordering,
   language calibration forwarding and awaited batch hooks. The standalone Python HTTP client
@@ -73,8 +73,8 @@ not a total-memory/RSS measurement.
 Native TypeScript passed 1,214 tests, public type checks and an external packed consumer. MCP
 passed 1,006 script checks, 94 device checks and 162 focused pytest cases. The HTTP suite passed
 326 tests; the Python API contract passed 769 checks. Agno passed 219 checks against the actual
-1.8.4 framework. The new evaluation regression suite passed 93 cases; 82 fail on the original Pro
-baseline, with 11 controls passing.
+3.1.12 framework. The evaluation regression suite passes 95 cases. Its initial 93-case baseline
+comparison had 82 failures and 11 passing controls; two later cases make parser-depth checks portable.
 
 The shared gate caught a cache/long-scan interaction during adoption: cache restores changed
 row indexes after attribution was recorded. The fix preserves cached and computed provenance
@@ -86,6 +86,12 @@ Independent review found one further Agno issue: incomplete score distributions 
 as safe. The correction requires the configured rubric's keys, bounded values and a normalized
 total, allowing four-decimal rounding. The absent-probabilities score fallback remains supported.
 All 28 focused adapter regressions and 219 real-framework checks pass after this correction.
+
+CI identified vulnerabilities in upstream's Agno 1.x constraint. The supported extra now requires
+`agno>=3.1.12,<4`, verified with the actual framework and compatible `Team(members=...)` API.
+This avoids the affected ranges in
+[the FunctionCall advisory](https://github.com/advisories/GHSA-m4w4-3r8h-jw98) and
+[the ClickHouse advisory](https://github.com/advisories/GHSA-82m5-3pcp-hccq).
 
 The Python client wheel and rebuilt source distribution each passed 65 tests with one Windows
 symlink-privilege skip, then extended/tournament and strict single/batch HTTP integration. The

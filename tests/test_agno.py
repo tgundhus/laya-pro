@@ -16,6 +16,8 @@ import asyncio
 import os
 import sys
 
+os.environ.setdefault("AGNO_TELEMETRY", "false")
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from laya.integrations.agno import (
@@ -192,8 +194,8 @@ check("router/name_2", dec2.name, "Coder")
 dec1 = router.route("Draft a blog post about machine learning", agents)
 check("router/agent_index_1", dec1.agent_index, 1)
 
-# route_team convenience method — Agno API: members=, mode="route" (agno>=1.1.14,<2)
-team_obj = AgnoTeam(members=agents, mode="route")
+# route_team convenience method — Agno 3.x Team exposes members.
+team_obj = AgnoTeam(members=agents)
 dec_team = router.route_team("Find recent research papers on LLMs", team_obj)
 check("router/route_team_index", dec_team.agent_index, 0)
 check("router/route_team_name", dec_team.name, "Researcher")
@@ -229,7 +231,7 @@ except ValueError:
 
 # route_team with empty members list
 try:
-    router.route_team("message", AgnoTeam(members=[], mode="route"))
+    router.route_team("message", AgnoTeam(members=[]))
     check("router/route_team_empty", False, True)
 except ValueError:
     check("router/route_team_empty", True, True)

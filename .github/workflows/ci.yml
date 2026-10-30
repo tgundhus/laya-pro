@@ -20,6 +20,7 @@ env:
   USE_TF: "0"
   USE_TORCH: "1"
   TOKENIZERS_PARALLELISM: "false"
+  AGNO_TELEMETRY: "false"
 
 jobs:
   typescript:

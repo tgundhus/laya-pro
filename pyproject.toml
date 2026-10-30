@@ -93,8 +93,8 @@ crewai = [
     "crewai>=1.15.6",
 ]
 
-# Agno 1.x Team routing and guardrails; local runners need no hosted service.
-agno = ["agno>=1.1.14,<2"]
+# Agno 3.x routing and guardrails, tested with the patched 3.1.12 release.
+agno = ["agno>=3.1.12,<4"]
 
 [project.scripts]
 laya = "laya.cli:main"

@@ -2,8 +2,7 @@
 
 Provides local agent routing, message guardrails and workflow step selection for Agno teams.
 
-Replaces slow, token-generating Team leader routing (``mode="route"``) with
-calibrated, typed decisions executed in a single forward pass without token cost.
+Selects an Agno team member using typed decisions from a local or self-hosted model.
 
 Supports both local in-process models (``Agent`` / ``Router``) and remote HTTP
 deployments (your own ``laya-serve``) without requiring PyTorch on edge clients.
@@ -24,7 +23,7 @@ Typical usage::
     # → Coder  0.94
 
     # Or pass a Team directly:
-    team = Team(members=[researcher, writer, coder], mode="route")
+    team = Team(members=[researcher, writer, coder])
     decision = router.route_team("Summarise the latest IPCC report", team)
 """
 from __future__ import annotations
@@ -64,12 +63,11 @@ except ImportError:
         """Lightweight shim when ``agno`` is not installed.
 
         Uses ``members`` to match the Agno ``Team`` contract
-        (``Team(members=[...], mode="route")``).  The legacy field
+        (``Team(members=[...])``). The legacy field
         name ``agents`` is accepted in :meth:`route_team` for compatibility
         with older hand-crafted dicts or mocked objects.
         """
         members: List[Any] = None  # type: ignore[assignment]
-        mode: str = "route"
 
         def __post_init__(self):
             if self.members is None:
@@ -420,7 +418,7 @@ def _execute_decision(
 # ---------------------------------------------------------------------------
 
 class LayaAgnoRouter:
-    """agent router for Agno ``Team`` (``mode="route"``) workflows.
+    """Agent selector for Agno 3.x teams.
 
     Evaluates messages against Agno agent descriptions in a single
     non-autoregressive forward pass, eliminating the 2–4 second LLM manager
@@ -644,14 +642,14 @@ class LayaAgnoRouter:
     ) -> AgnoRouteDecision:
         """Convenience wrapper: route *message* using members from an ``AgnoTeam``.
 
-        Reads ``team.members`` (the Agno ``Team`` contract, ``agno>=1.1.14,<2``)
+        Reads ``team.members`` (the Agno 3.x ``Team`` contract)
         with a compat fallback to ``team.agents`` for hand-crafted mocks or test
         objects using the old attribute name.  Members may also be a callable factory
         (Agno supports dynamic member lists); it is called with no arguments.
 
         Args:
             message: The message to route.
-            team: An ``AgnoTeam`` instance (``Team(members=[...], mode="route")``).
+            team: An ``AgnoTeam`` instance (``Team(members=[...])``).
 
         Returns:
             :class:`AgnoRouteDecision` with the selected agent and confidence.
