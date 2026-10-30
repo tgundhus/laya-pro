@@ -93,6 +93,9 @@ class RemoteRouter(Router):
         # device/preload make no sense for a router that never builds an Agent.
         router_kwargs.pop("device", None)
         router_kwargs.pop("preload", None)
+        # Resource presets belong to the HTTP server. Suppress even an inherited local
+        # LAYA_PERFORMANCE_MODE so constructing a remote client never configures torch.
+        router_kwargs["performance_mode"] = "default"
         super().__init__(**router_kwargs)
         self.base_url = base_url.rstrip("/")
         parsed = urllib.parse.urlsplit(self.base_url)

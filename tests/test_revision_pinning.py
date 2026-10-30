@@ -274,13 +274,15 @@ class RouterAgentKwargsTests(unittest.TestCase):
         for _repo, kwargs in captured:
             self.assertEqual(kwargs["expected_sha256"], {"model.safetensors": "0" * 64})
 
-    def test_passing_nothing_leaves_the_build_exactly_as_it_was(self):
+    def test_passing_nothing_keeps_legacy_build_options_and_freezes_default_mode(self):
         module, fake, captured = self._fake_agent()
         with patch.object(module, "Agent", fake):
             Router().load("english")
             Router(revision="sha").load("english")
-        self.assertEqual(sorted(captured[0][1]), ["device", "subfolder", "token"])
-        self.assertEqual(sorted(captured[1][1]), ["device", "revision", "subfolder", "token"])
+        self.assertEqual(sorted(captured[0][1]), ["device", "performance_mode", "subfolder", "token"])
+        self.assertEqual(sorted(captured[1][1]), ["device", "performance_mode", "revision", "subfolder", "token"])
+        self.assertEqual(captured[0][1]["performance_mode"], "default")
+        self.assertEqual(captured[1][1]["performance_mode"], "default")
 
     def test_a_router_value_is_never_shadowed_by_an_agent_kwarg(self):
         module, fake, captured = self._fake_agent()

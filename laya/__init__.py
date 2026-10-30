@@ -26,6 +26,7 @@ from .email import clean_email_body, email_state
 from .hooks import AsyncHook, BaseHook, Hook, PredictContext, PredictHook
 from .lang import analyse as detect_language
 from .lang import detect_script, is_english
+from .performance import parse_performance_mode, resolve_performance_mode
 from .presets import (
     email_questions,
     guard_questions,
@@ -111,6 +112,8 @@ __all__ = [
     "Router",
     "RouteDecision",
     "DEFAULT_MODELS",
+    "parse_performance_mode",
+    "resolve_performance_mode",
     "shortlist_choice",
     "predict_shortlist",
     "predict_tournament",

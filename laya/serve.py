@@ -448,16 +448,16 @@ def _resolve_model(model: Optional[str], resolve=None) -> Optional[str]:
         return None
 
 
-def _resolve_max_concurrent() -> int:
+def _resolve_max_concurrent(default: int = DEFAULT_MAX_CONCURRENT) -> int:
     """Bound on requests past auth at once, from LAYA_MAX_CONCURRENT."""
     raw = os.environ.get("LAYA_MAX_CONCURRENT")
     if not raw:
-        return DEFAULT_MAX_CONCURRENT
+        return default
     try:
         n = int(raw)
     except ValueError:
-        return DEFAULT_MAX_CONCURRENT
-    return n if n > 0 else DEFAULT_MAX_CONCURRENT
+        return default
+    return n if n > 0 else default
 
 
 def _resolve_body_read_timeout() -> float:
@@ -522,7 +522,7 @@ def _resolve_max_token_budget() -> int:
     return n
 
 
-def _resolve_max_batch_tokens() -> int:
+def _resolve_max_batch_tokens(default: int = DEFAULT_MAX_BATCH_TOKENS) -> int:
     """Tokens one batch FORWARD PASS may collate, from LAYA_MAX_BATCH_TOKENS.
 
     Sizes the chunk, it does not refuse: see the constant's own comment for why a refusal would need
@@ -530,17 +530,17 @@ def _resolve_max_batch_tokens() -> int:
     """
     raw = os.environ.get("LAYA_MAX_BATCH_TOKENS")
     if not raw:
-        return DEFAULT_MAX_BATCH_TOKENS
+        return default
     try:
         n = int(str(raw).strip())
     except (TypeError, ValueError):
         _log.warning("invalid LAYA_MAX_BATCH_TOKENS %r; falling back to %d", raw,
-                     DEFAULT_MAX_BATCH_TOKENS)
-        return DEFAULT_MAX_BATCH_TOKENS
+                     default)
+        return default
     if n <= 0:
         _log.warning("LAYA_MAX_BATCH_TOKENS must be positive (got %d); falling back to %d", n,
-                     DEFAULT_MAX_BATCH_TOKENS)
-        return DEFAULT_MAX_BATCH_TOKENS
+                     default)
+        return default
     return n
 
 
@@ -1024,7 +1024,8 @@ def _check_request_limits(state: Any, questions: Any, max_choice_options: int = 
                             detail="state too large (%d > %d chars)" % (state_len, MAX_STATE_CHARS))
 
 
-def _batch_chunk_size(n_states: int, n_questions: int, max_len: Any = None) -> Optional[int]:
+def _batch_chunk_size(n_states: int, n_questions: int, max_len: Any = None,
+                      budget: Optional[int] = None) -> Optional[int]:
     """States per forward pass so one pass stays inside the token budget, or None to change nothing.
 
     `None` means "send them all in one pass", which is `predict_batch`'s own default, so a request
@@ -1040,9 +1041,10 @@ def _batch_chunk_size(n_states: int, n_questions: int, max_len: Any = None) -> O
         return None
     width = (max_len if isinstance(max_len, int) and not isinstance(max_len, bool) and max_len > 0
              else _BATCH_ROW_TOKENS_ASSUMED)
-    if n_states * n_questions * width <= _resolve_max_batch_tokens():
+    budget = _resolve_max_batch_tokens() if budget is None else budget
+    if n_states * n_questions * width <= budget:
         return None
-    rows_per_pass = max(1, _resolve_max_batch_tokens() // width)
+    rows_per_pass = max(1, budget // width)
     return max(1, min(n_states, rows_per_pass // n_questions))
 
 
@@ -1182,19 +1184,78 @@ def _apply_thread_limit():
     return n
 
 
-def build_router():
+def _server_performance_config(performance_mode=None):
+    """Resolve a deployment profile and its explicit environment overrides without side effects."""
+    from .performance import resolve_performance_mode
+
+    config = resolve_performance_mode(performance_mode)
+    if config is None:
+        return None
+    config["max_loaded"] = _resolve_max_loaded() or config["max_loaded"]
+    config["preload"] = _env_bool("LAYA_PRELOAD", config["preload"])
+    config["max_batch_tokens"] = _resolve_max_batch_tokens(config["max_batch_tokens"])
+    config["max_concurrent"] = _resolve_max_concurrent(config["max_concurrent"])
+    config["overrides"] = {
+        name: config[key] for name, key in (
+            ("LAYA_THREADS", "threads"), ("LAYA_MAX_LOADED", "max_loaded"),
+            ("LAYA_PRELOAD", "preload"), ("LAYA_MAX_BATCH_TOKENS", "max_batch_tokens"),
+            ("LAYA_MAX_CONCURRENT", "max_concurrent"),
+        ) if os.environ.get(name, "").strip()
+    }
+    return config
+
+
+def _server_preload_names(config, default_names):
+    """Keep legacy explicit preloads; bound only the profile's automatic preload list."""
+    raw = os.environ.get("LAYA_MODELS", "").strip()
+    names = [name.strip() for name in raw.split(",") if name.strip()]
+    if names:
+        return names
+    if config is None or os.environ.get("LAYA_PRELOAD", "").strip():
+        return default_names
+    if default_names is None:
+        from .router import DEFAULT_MODELS
+        default_names = list(DEFAULT_MODELS)
+    return list(default_names)[:config["max_loaded"]]
+
+
+def _record_server_performance(router, config):
+    if config is not None:
+        config = {**config, "max_loaded": getattr(router, "max_loaded", config["max_loaded"])}
+        router.performance_config = dict(config)
+    router._laya_server_performance_config = config
+
+
+def _performance_report(router, config=None):
+    if config is None:
+        config = getattr(router, "_laya_server_performance_config", None)
+    if config is None:
+        config = getattr(router, "performance_config", None)
+    if config is not None:
+        config = {**config, "max_loaded": getattr(router, "max_loaded", config["max_loaded"])}
+    return {"performance_mode": config["mode"] if config is not None else None,
+            "performance_config": config}
+
+
+def build_router(performance_mode=None):
     """Build a Router from the environment, preloading unless told otherwise."""
     from .mcp.device import env_device
     from .router import Router
 
-    _apply_thread_limit()
+    config = _server_performance_config(performance_mode)
+    preload = config["preload"] if config is not None else _env_bool("LAYA_PRELOAD", True)
+    if config is None:
+        _apply_thread_limit()
     # `env_device` rather than a raw read: it strips, the way `LAYA_MODELS` two lines
     # below is stripped. A value copied out of a Dockerfile or a `.env` file carries a
     # trailing newline, and torch refuses that as an invalid device string.
     device = env_device()
-    models_env = os.environ.get("LAYA_MODELS", "").strip()
-    preload_names = [m.strip() for m in models_env.split(",") if m.strip()] or None
+    preload_names = _server_preload_names(config, None)
     options = {"device": device, "auto_task_detection": _env_bool("LAYA_AUTO_TASK", False)}
+    if config is not None:
+        options.update(performance_mode=config["mode"], preload=False)
+    elif performance_mode is not None:
+        options["performance_mode"] = "default"
     max_loaded = _resolve_max_loaded()
     if max_loaded is not None:
         options["max_loaded"] = max_loaded
@@ -1213,8 +1274,9 @@ def build_router():
         raise SystemExit(str(error)) from None
     try:
         _configure_decision_cache(router)
-        if _env_bool("LAYA_PRELOAD", True):
+        if preload:
             router.preload(preload_names)
+        _record_server_performance(router, config)
     except BaseException:
         _close_decision_cache(router)
         raise
@@ -1273,9 +1335,10 @@ def _decision_cache_report(router):
                                "renew_on_hit": cache.renew_on_hit, **info}}
 
 
-def create_app(router: Optional[Any] = None):
+def create_app(router: Optional[Any] = None, *, performance_mode=None):
     """Build the FastAPI app. Pass a Router to inject one (tests); otherwise one
-    is built from the environment (and preloaded) at app-creation time."""
+    is built from the environment (and preloaded) at app-creation time. An injected
+    Router owns its runtime profile; an explicit app mode must match it."""
     import asyncio
     from concurrent.futures import ThreadPoolExecutor
     from functools import partial
@@ -1286,7 +1349,24 @@ def create_app(router: Optional[Any] = None):
 
     owns_router = router is None
     if router is None:
-        router = build_router()
+        router = build_router() if performance_mode is None else build_router(performance_mode)
+    config = getattr(router, "_laya_server_performance_config", getattr(router, "performance_config", None))
+    if not owns_router and performance_mode is not None:
+        from .performance import parse_performance_mode
+
+        mode = config["mode"] if config is not None else None
+        if parse_performance_mode(performance_mode) != mode:
+            raise ValueError("performance_mode must match the injected Router's configured mode (%s); "
+                             "configure the Router before injecting it" % (mode if mode is not None else "default"))
+    if config is not None:
+        # Runtime budgets already belong to the Router. Only HTTP token/admission limits
+        # are selected here, without revisiting threads, preloading or model residency.
+        config = {**config, "overrides": dict(config.get("overrides", {}))}
+        for name, key, resolve in (("LAYA_MAX_BATCH_TOKENS", "max_batch_tokens", _resolve_max_batch_tokens),
+                                   ("LAYA_MAX_CONCURRENT", "max_concurrent", _resolve_max_concurrent)):
+            config[key] = resolve(config[key])
+            if os.environ.get(name, "").strip():
+                config["overrides"][name] = config[key]
     api_key = os.environ.get("LAYA_API_KEY") or None
 
     # Inference is synchronous torch, and a CPU call takes hundreds of milliseconds to
@@ -1307,7 +1387,8 @@ def create_app(router: Optional[Any] = None):
     # once stay bounded no matter how many clients connect (#330). The inference
     # gate is still joined only after the body is complete, so a slow client
     # holds an admission slot but never an inference slot.
-    max_concurrent = _resolve_max_concurrent()
+    max_concurrent = config["max_concurrent"] if config is not None else _resolve_max_concurrent()
+    max_batch_tokens = config["max_batch_tokens"] if config is not None else _resolve_max_batch_tokens()
     body_read_timeout = _resolve_body_read_timeout()
     admission: Optional[asyncio.Semaphore] = None
 
@@ -1452,6 +1533,8 @@ def create_app(router: Optional[Any] = None):
                  "idle_seconds": round(time.monotonic() - last_request, 1)} if idle_unload_seconds else {})
         return {
             "status": "ok",
+            "performance_mode": config["mode"] if config is not None else None,
+            "performance_config": _performance_report(router, config)["performance_config"],
             **_decision_cache_report(router),
             "loaded": router.loaded,
             "revisions": getattr(router, "loaded_revisions", {}),
@@ -1652,9 +1735,12 @@ def create_app(router: Optional[Any] = None):
         # case where nothing was going to be passed anyway.
         planned = _batch_chunk_size(
             len(states), len(questions) if isinstance(questions, dict) else 0,
-            body.get("max_len"))
+            body.get("max_len"), budget=max_batch_tokens)
         if batch_size is not None:
             call_kwargs["batch_size"] = batch_size if planned is None else min(batch_size, planned)
+        elif config is not None:
+            call_kwargs["batch_size"] = (config["batch_size"] if planned is None
+                                         else min(config["batch_size"], planned))
         elif planned is not None:
             call_kwargs["batch_size"] = planned
         sort_by_length = _validate_sort_by_length_param(body)
@@ -1724,11 +1810,17 @@ def create_app(router: Optional[Any] = None):
     return app
 
 
-def main() -> None:
+def main(argv=None) -> None:
+    import argparse
     import socket
 
     import uvicorn
     from uvicorn.protocols.http.auto import AutoHTTPProtocol
+
+    parser = argparse.ArgumentParser(description="Serve Laya over HTTP")
+    parser.add_argument("--performance-mode", choices=("1", "2", "3", "4", "5", "default"),
+                        help="resource preset (1 minimal through 5 dedicated); default disables the environment preset")
+    args = parser.parse_args(argv)
 
     class NoDelayHTTPProtocol(AutoHTTPProtocol):
         # asyncio only sets TCP_NODELAY when the accepted socket reports IPPROTO_TCP, and
@@ -1743,7 +1835,7 @@ def main() -> None:
             super().connection_made(transport)
 
     uvicorn.run(
-        create_app(),
+        create_app() if args.performance_mode is None else create_app(performance_mode=args.performance_mode),
         host=os.environ.get("LAYA_HOST", "0.0.0.0"),
         port=_resolve_port(),
         log_level=_resolve_log_level(),

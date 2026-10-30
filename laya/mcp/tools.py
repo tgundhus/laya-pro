@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any, Callable, Protocol, Sequence
 
@@ -1207,24 +1208,33 @@ def _remote_status(router: Any, preload: bool) -> dict:
     out["server"] = health
     loaded = health.get("loaded")
     out["loaded"] = [v for v in loaded if isinstance(v, str)] if isinstance(loaded, list) else []
-    for key in ("device", "device_is_preference", "checkpoint_devices", "decision_cache"):
+    for key in ("device", "device_is_preference", "checkpoint_devices", "decision_cache",
+                "performance_mode", "performance_config"):
         if key in health:
             out[key] = health[key]
     return out
 
 
-def laya_status(*, router: Any = None, loaded: list[str] | None = None, preload: bool = True) -> dict:
-    from ..serve import _decision_cache_report
+def laya_status(*, router: Any = None, loaded: list[str] | None = None, preload: bool = True,
+                performance_mode=None) -> dict:
+    from ..serve import _decision_cache_report, _performance_report, _server_performance_config
 
     if router is not None and hasattr(router, "base_url") and hasattr(router, "health"):
         return _remote_status(router, preload)
-    report = device_report()
+    config = getattr(router, "_laya_server_performance_config", getattr(router, "performance_config", None))
+    if config is None and not hasattr(router, "_laya_server_performance_config"):
+        config = _server_performance_config(performance_mode)
+    # A preset can be inspected before constructing a Router or importing torch. Device
+    # availability becomes known when a checkpoint is built; this is its preference only.
+    report = ({"device": os.environ.get("LAYA_DEVICE", "").strip().lower() or "auto",
+               "torch_cuda": None, "torch_version": None}
+              if router is None and config is not None else device_report())
     versions: dict[str, str | None] = {
         "laya": None,
         "torch": report.get("torch_version"),
         "transformers": None,
     }
-    for pkg in ("laya", "transformers"):
+    for pkg in (("laya",) if router is None and config is not None else ("laya", "transformers")):
         try:
             mod = __import__(pkg)
             versions[pkg] = getattr(mod, "__version__", "unknown")
@@ -1250,12 +1260,13 @@ def laya_status(*, router: Any = None, loaded: list[str] | None = None, preload:
 
     return {
         **report,
+        **_performance_report(router, config),
         **_decision_cache_report(router),
         "device": actual or report["device"],
         "device_is_preference": actual is None,
         "checkpoint_devices": checkpoint_devices,
         "loaded": list(loaded or []),
-        "router_preload": bool(preload),
+        "router_preload": config["preload"] if config is not None else bool(preload),
         "router_ready": router is not None,
         "package_versions": versions,
     }

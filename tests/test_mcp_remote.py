@@ -448,7 +448,7 @@ def test_remote_mcp_startup_and_every_tool_avoid_torch(serve):
         builtins.__import__ = no_torch
         from laya.mcp import server
         server.server.run = lambda: None
-        server.main()
+        server.main([])
         state = {"text": "billed twice"}
         questions = {"dept": {"type": "choice", "instructions": "which team?",
                               "criteria": {"billing": "payments", "tech": "bugs"}}}

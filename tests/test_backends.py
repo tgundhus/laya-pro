@@ -238,7 +238,8 @@ check("compile/warmup failure warns once", len(w), 1)
 from laya.router import Router  # noqa: E402
 
 class LegacyAgent:
-    def __init__(self, repo, device=None, token=None, subfolder=None):
+    def __init__(self, repo, device=None, token=None, subfolder=None, *, performance_mode=None):
+        check("Router/default explicitly retains legacy performance", performance_mode, "default")
         self.repo = repo
 
 with patch("laya.agent.Agent", LegacyAgent):

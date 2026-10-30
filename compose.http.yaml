@@ -37,6 +37,8 @@ services:
       LAYA_HOST: "${LAYA_HOST:-0.0.0.0}"
       LAYA_PORT: "${LAYA_PORT:-8000}"
       LAYA_DEVICE: "${LAYA_DEVICE:-cpu}"
+      # Presets supply resource defaults; the explicit controls below take precedence.
+      LAYA_PERFORMANCE_MODE: "${LAYA_PERFORMANCE_MODE:-}"
       # FastAPI's external URL prefix behind a reverse proxy; forward stripped paths.
       LAYA_ROOT_PATH: "${LAYA_ROOT_PATH:-}"
       # Autocast dtype the runtime reads when building the model; empty keeps the checkpoint's own

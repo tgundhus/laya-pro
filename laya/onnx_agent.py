@@ -33,6 +33,7 @@ from laya.common import (
     clamp_temperature,
 )
 from laya.confidence import apply_confidence_gate, check_min_confidence
+from laya.performance import resolve_performance_mode
 
 
 def _collate_items_numpy(batch: List[List[Dict[str, Any]]], pad_id: int) -> Dict[str, np.ndarray]:
@@ -82,6 +83,8 @@ class ONNXAgent(HookRegistry):
     hooks_timeout = None
     _hooks_lock = None
     model_id = None
+    performance_config = None
+    performance_mode = None
 
     def __init__(
         self,
@@ -99,6 +102,8 @@ class ONNXAgent(HookRegistry):
         hooks_timeout: Optional[float] = None,
         lang_temperatures: Optional[Dict[str, Dict[str, Any]]] = None,
         calibration: Optional[str] = None,
+        *,
+        performance_mode=None,
     ):
         """Load a Laya agent backed by ONNX Runtime.
 
@@ -127,7 +132,12 @@ class ONNXAgent(HookRegistry):
                                code, each `{"temperature": [3 floats], "temperature_by_options": {}}`.
                                Applied when a `lang=` is passed to `system_one`/`predict`, mirroring
                                the PyTorch `Agent`; a cross-backend swap otherwise loses calibration.
+            performance_mode (int | str | None): Opt-in local resource budget (1..5), or the environment's
+                              LAYA_PERFORMANCE_MODE when omitted. "default" disables it.
+                              Threads are configured on this ONNX session only.
         """
+        self.performance_config = resolve_performance_mode(performance_mode)
+        self.performance_mode = self.performance_config["mode"] if self.performance_config else None
         self.hooks = normalise_hooks(hooks, on_predict_start, on_predict_end)
         self.hooks_raise = bool(hooks_raise)
         self.hooks_concurrent = bool(hooks_concurrent)
@@ -215,6 +225,8 @@ class ONNXAgent(HookRegistry):
         # unoptimized graph. Measured ~1.45x on CPU / ~1.75x on GPU vs eager torch with it on.
         so = ort.SessionOptions()
         so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        if self.performance_config:
+            so.intra_op_num_threads = self.performance_config["threads"]
         try:
             self.session = ort.InferenceSession(onnx_path, sess_options=so, providers=providers)
         except Exception:
@@ -370,6 +382,8 @@ class ONNXAgent(HookRegistry):
             A list of per-state result dicts, each identical in shape to `system_one`'s output and
             aligned with `states` by index.
         """
+        if batch_size is None and self.performance_config:
+            batch_size = self.performance_config["batch_size"]
         mc = check_min_confidence(min_confidence) if min_confidence is not None else None
         active = compose_hooks(self.hooks, hooks, on_predict_start, on_predict_end)
         raise_errors = self.hooks_raise if hooks_raise is None else bool(hooks_raise)
@@ -498,6 +512,8 @@ class ONNXAgent(HookRegistry):
         from .agent import _check_scan_budget, _replayed_from_memory, _scan_answer_index, _start_evidence, _with_start_probe
         from .hooks import aggregate_usage
 
+        if batch_size is None and self.performance_config:
+            batch_size = self.performance_config["batch_size"]
         hook_kwargs = {"hooks": hooks, "on_predict_start": on_predict_start,
                        "on_predict_end": on_predict_end, "hooks_raise": hooks_raise,
                        "hooks_timeout": hooks_timeout}
@@ -577,6 +593,8 @@ class ONNXAgent(HookRegistry):
         # `window_batch_cap`. An explicit batch_size is honoured untouched.
         cap = window_batch_cap(len(windows), budget, max(64, max_len - head_max_len - 8),
                                batch_size)
+        if cap is None and batch_size is not None:
+            cap = batch_size
         results = self.predict_batch(list(windows), questions, batch_size=cap, lang=lang,
                                      **_with_start_probe(hook_kwargs, probe))
         # Same check as the torch agent, for the same reason and on the same contract: a start hook

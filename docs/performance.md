@@ -8,6 +8,10 @@ credibility: "Measured with research/scripts/bench_stages.py and research/script
 
 # Where a request's time goes
 
+For opt-in resource budgets on current code, see [Performance modes](performance-modes.md).
+Modes adjust threads, batching and model lifecycle without changing precision or input windows;
+the historical stage measurements below use their own stated hardware and settings.
+
 `research/scripts/bench_stages.py` wraps a timer around every stage a `Router.predict` call goes
 through and times each scenario twice: once with the timers, to see where the time goes, and
 once without, which is the latency to quote. The figures below come from a 4-core Xeon CPU. The

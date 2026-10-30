@@ -24,7 +24,8 @@ def fake_agent(monkeypatch):
     calls = []
 
     class Agent:
-        def __init__(self, repo, *, device, token, subfolder):
+        def __init__(self, repo, *, device, token, subfolder, performance_mode=None):
+            assert performance_mode == "default"
             self.checkpoint = subfolder or "english"
             built.append(self.checkpoint)
 
@@ -125,7 +126,7 @@ def test_evicted_checkpoint_is_unreferenced_when_it_is_evicted(monkeypatch):
     evicted_alive = []
 
     class Agent:
-        def __init__(self, repo, *, device, token, subfolder):
+        def __init__(self, repo, *, device, token, subfolder, performance_mode=None):
             self.checkpoint = subfolder or "english"
             refs[self.checkpoint] = weakref.ref(self)
 
@@ -232,7 +233,7 @@ def test_concurrent_batch_load_deduplicates(monkeypatch):
     guard = Lock()
 
     class SlowAgent:
-        def __init__(self, repo, *, device, token, subfolder):
+        def __init__(self, repo, *, device, token, subfolder, performance_mode=None):
             sleep(0.01)
             with guard:
                 built.append(subfolder or "english")
@@ -343,7 +344,7 @@ def _lang_recording_router(monkeypatch, lang_temperatures):
     calls = []
 
     class Agent:
-        def __init__(self, repo, *, device, token, subfolder):
+        def __init__(self, repo, *, device, token, subfolder, performance_mode=None):
             self.checkpoint = subfolder or "english"
             if lang_temperatures is not None:
                 self.lang_temperatures = lang_temperatures
@@ -401,7 +402,7 @@ def _budget_recording_router(monkeypatch, hooks=(), agent=None):
     calls = []
 
     class Recording:
-        def __init__(self, repo, *, device, token, subfolder):
+        def __init__(self, repo, *, device, token, subfolder, performance_mode=None):
             self.checkpoint = subfolder or "english"
 
         def predict_batch(self, states, questions, batch_size=None, **overrides):
@@ -444,7 +445,7 @@ def test_requests_without_a_budget_forward_no_budget_keys(monkeypatch):
     """`predict` passes the budget only when set, so an Agent-like object whose methods predate
     the arguments still works. Naming the keys `None` must behave like leaving them out."""
     class NoBudgetArgs:
-        def __init__(self, repo, *, device, token, subfolder):
+        def __init__(self, repo, *, device, token, subfolder, performance_mode=None):
             pass
 
         def predict_batch(self, states, questions, batch_size=None):
@@ -483,7 +484,7 @@ def test_router_predict_and_predict_batch_min_confidence(monkeypatch):
     import laya.agent
 
     class Agent:
-        def __init__(self, repo, *, device, token, subfolder):
+        def __init__(self, repo, *, device, token, subfolder, performance_mode=None):
             pass
 
         def system_one(self, state, questions, **overrides):
@@ -530,7 +531,7 @@ def test_end_hooks_see_the_low_confidence_flag(monkeypatch):
     import laya.agent
 
     class Agent:
-        def __init__(self, repo, *, device, token, subfolder):
+        def __init__(self, repo, *, device, token, subfolder, performance_mode=None):
             pass
 
         def system_one(self, state, questions, **overrides):
@@ -568,7 +569,7 @@ def _sort_recording_router(monkeypatch, accepts_sort):
     calls = []
 
     class Agent:
-        def __init__(self, repo, *, device, token, subfolder):
+        def __init__(self, repo, *, device, token, subfolder, performance_mode=None):
             pass
 
         if accepts_sort:
@@ -624,7 +625,7 @@ def test_an_agent_that_predates_both_lang_and_sort_by_length_still_serves(monkey
     class Agent:
         lang_temperatures = {"de": [1.5, 1.5, 1.5]}  # so the batch forwards `lang`
 
-        def __init__(self, repo, *, device, token, subfolder):
+        def __init__(self, repo, *, device, token, subfolder, performance_mode=None):
             pass
 
         def predict_batch(self, states, questions, batch_size=None):

@@ -1742,7 +1742,7 @@ def test_accepted_connections_set_tcp_nodelay(monkeypatch):
     captured = {}
     monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: captured.update(kwargs))
     monkeypatch.setattr(laya.serve, "create_app", lambda: None)
-    laya.serve.main()
+    laya.serve.main([])
 
     async def drive():
         config = uvicorn.Config(create_app(router=FakeRouter()), host="127.0.0.1", port=0,
@@ -1881,18 +1881,18 @@ def test_a_bad_log_level_is_refused_before_uvicorn_sees_it(monkeypatch):
     monkeypatch.setattr(laya.serve, "create_app", lambda: None)
 
     monkeypatch.setenv("LAYA_LOG_LEVEL", "  WARNING  ")
-    laya.serve.main()
+    laya.serve.main([])
     assert captured["log_level"] == "warning"
 
     monkeypatch.setenv("LAYA_LOG_LEVEL", "")
     captured.clear()
-    laya.serve.main()
+    laya.serve.main([])
     assert captured["log_level"] == DEFAULT_LOG_LEVEL
 
     captured.clear()
     monkeypatch.setenv("LAYA_LOG_LEVEL", "verbose")
     with pytest.raises(SystemExit, match=r"invalid LAYA_LOG_LEVEL 'verbose'"):
-        laya.serve.main()
+        laya.serve.main([])
     assert captured == {}, "the refusal must happen before uvicorn.run is reached"
 
 

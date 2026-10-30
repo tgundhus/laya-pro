@@ -55,6 +55,7 @@ except ImportError as exc:  # mcp extra not installed
 from laya.serve import (
     _apply_thread_limit, _close_decision_cache, _configure_decision_cache,
     _default_model_option, _env_bool, _extra_models_option, _resolve_max_loaded,
+    _record_server_performance, _server_performance_config, _server_preload_names,
 )
 
 from .device import env_device
@@ -85,6 +86,7 @@ server = MCPServer("laya-pro", version=_LAYA_VERSION)
 
 _ROUTER: Any = None
 _ROUTER_LOCK = threading.Lock()
+_PERFORMANCE_MODE = None
 
 # MCP default preload list. laya.serve preloads every checkpoint when LAYA_MODELS
 # is empty; MCP keeps typed-decisions lazy on purpose (it is ~as big as the other
@@ -199,11 +201,18 @@ def _ensure_router() -> Any:
         except Exception as exc:
             raise ToolError("internal_error", f"cannot import laya: {exc}") from exc
         try:
-            _apply_thread_limit()
+            config = _server_performance_config(_PERFORMANCE_MODE)
+            preload = config["preload"] if config is not None else _env_bool("LAYA_PRELOAD", True)
+            if config is None:
+                _apply_thread_limit()
             extra_models = _extra_models_option()
             options = {"device": env_device(),
                        "auto_task_detection": _env_bool("LAYA_AUTO_TASK", False),
                        **_default_model_option(extra_models)}
+            if config is not None:
+                options.update(performance_mode=config["mode"], preload=False)
+            elif _PERFORMANCE_MODE is not None:
+                options["performance_mode"] = "default"
             max_loaded = _resolve_max_loaded()
             if max_loaded is not None:
                 options["max_loaded"] = max_loaded
@@ -211,8 +220,9 @@ def _ensure_router() -> Any:
                 options["models"] = extra_models
             router = Router(**options)
             _configure_decision_cache(router)
-            if _env_bool("LAYA_PRELOAD", True):
-                router.preload(_models_from_env())
+            if preload:
+                router.preload(_server_preload_names(config, list(_DEFAULT_MODELS)))
+            _record_server_performance(router, config)
         except (Exception, SystemExit) as exc:
             if "router" in locals():
                 _close_decision_cache(router)
@@ -268,7 +278,10 @@ def laya_status_tool() -> str:
     # call comes first: the remote report then describes the server instead of a torch probe of
     # this process, and `device_report()`'s torch import never happens in a remote MCP process.
     router = _ROUTER if (_ROUTER is not None or not _remote_base_url()) else _router_or_error()
-    return _wrap(laya_status, router=router, preload=_env_bool("LAYA_PRELOAD", True))
+    config = None if _remote_base_url() else _server_performance_config(_PERFORMANCE_MODE)
+    return _wrap(laya_status, router=router,
+                 preload=config["preload"] if config is not None else _env_bool("LAYA_PRELOAD", True),
+                 performance_mode=_PERFORMANCE_MODE)
 
 
 @server.tool(
@@ -638,7 +651,15 @@ def laya_predict_long_tool(state: dict, questions: dict, model: str | None = Non
                  window=window, stride=stride, task=task, lang=lang, router=router)
 
 
-def main() -> None:
+def main(argv=None) -> None:
+    import argparse
+
+    global _PERFORMANCE_MODE
+    parser = argparse.ArgumentParser(description="Serve Laya tools over MCP stdio")
+    parser.add_argument("--performance-mode", choices=("1", "2", "3", "4", "5", "default"),
+                        help="local resource preset; default disables the environment preset")
+    args = parser.parse_args(argv)
+    _PERFORMANCE_MODE = args.performance_mode
     # Windows without Developer Mode cannot create HF cache symlinks (WinError
     # 1314). On POSIX the cache uses symlinks by default and disabling them
     # would copy the files and double disk use, so the override is Windows-only.
@@ -649,11 +670,14 @@ def main() -> None:
         # Nothing to preload: the server at LAYA_BASE_URL owns the checkpoints. Say so once, so a
         # reader of the client's stderr knows which process is answering.
         print(f"[laya-mcp] remote mode: answering from laya-serve at {_remote_base_url()}", file=sys.stderr)
-    elif _env_bool("LAYA_PRELOAD", True):
-        try:
-            _ensure_router()
-        except Exception as exc:
-            print(f"[laya-mcp] preload failed (will retry on demand): {exc}", file=sys.stderr)
+    else:
+        config = _server_performance_config(_PERFORMANCE_MODE)
+        preload = config["preload"] if config is not None else _env_bool("LAYA_PRELOAD", True)
+        if preload:
+            try:
+                _ensure_router()
+            except Exception as exc:
+                print(f"[laya-mcp] preload failed (will retry on demand): {exc}", file=sys.stderr)
     try:
         server.run()
     finally:
