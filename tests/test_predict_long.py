@@ -975,8 +975,12 @@ check_true("batch cap/the ONNX scan passes the cap to predict_batch",
            "window_batch_cap(" in _onnx_src and "batch_size=cap" in _onnx_src, "")
 # Compared on the statements, not on any mention: the comment above the call names `_to_internal`.
 check_true("questions/the ONNX scan validates before _to_internal",
-           _onnx_src.index("_Agent._check_question(qid")
+           _onnx_src.index("_check_question(qid")
            < _onnx_src.index("internal = {qid: self._to_internal"), "")
+from laya.inference import _check_question as _shared_check_question  # noqa: E402
+
+check_true("questions/the ONNX scan uses the shared Agent validator",
+           _shared_check_question is Agent._check_question, "")
 
 
 # A start hook may set ctx.max_len / ctx.head_max_len, or rewrite ctx.questions -- both documented

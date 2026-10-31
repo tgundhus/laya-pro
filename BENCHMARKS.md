@@ -538,3 +538,60 @@ does not test multi-model residency, automatic preload, HTTP admission, GPU exec
 hardware; its maximum batch was only 760 padded tokens. Full raw outputs, samples, tensor shapes,
 memory counters and pinned artifact/source hashes: `research/results/performance_modes_cpu_20261030.json`.
 The [mode guide](docs/performance-modes.md) documents settings and reproduction.
+
+## Loading memory and standalone ONNX (31 October 2026)
+
+These runs use the real cached English checkpoint at snapshot
+`55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851`, weight SHA-256
+`891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c`.
+The baseline is commit `6867bc3df62e40f656fc7062f34fca0fa7fdd252`.
+Windows 11, Intel Family 6 Model 183, 32 logical CPUs, Python 3.12.14,
+Torch 2.14.1+cpu, NumPy 2.5.3 and ONNX Runtime 1.30.0; four CPU threads,
+Torch inter-op one, fp32 eager execution and no decision cache throughout.
+
+Each variant ran in three fresh processes, paired in alternating order. Filesystem
+caches were left intact. Startup includes Python, imports, loading and the first
+three-question answer. Warm timings pool five calls per process; figures are medians.
+
+| runtime | constructor s | startup to first answer s | peak working set MiB | peak private commit MiB | warm predict ms | direct forward ms |
+|---|---:|---:|---:|---:|---:|---:|
+| PyTorch baseline, strict copy | 3.194 | 4.606 | 2735.1 | 4219.4 | 245.41 | 244.90 |
+| PyTorch, bounded streaming copy | 3.193 | 4.621 | 1970.8 | 4219.5 | 245.95 | 244.71 |
+| full ONNX baseline | 3.991 | 5.374 | 1827.5 | 1960.9 | 232.97 | 231.86 |
+| standalone `laya_onnx` | 1.360 | 1.782 | 1566.5 | 1705.7 | 233.43 | 232.86 |
+
+PyTorch's peak resident memory fell **764.3 MiB (27.9%)**. Private commit and steady
+working set stayed the same: after loading, both held about 1932 MiB working set.
+This is a loading-peak reduction, with unchanged startup and warm inference time.
+The checkpoint contains F16 and F32 tensors; both loaders produced FP32 parameters.
+The measured new path was `stream`, retaining the same per-tensor conversion as copying.
+
+The full and standalone ONNX runs used the **same real fp32 graph**, exported with
+`scripts/export_onnx.py`: 3,347,852 graph bytes plus 1,685,258,240 external weight bytes.
+The standalone runtime imported neither Torch nor Transformers. Startup to the first
+answer fell from **5.374 to 1.782 s**, while warm inference stayed essentially unchanged.
+Its final working set was about 261 MiB lower and private commit about 255 MiB lower.
+Both ONNX variants used identical NumPy, ONNX Runtime and tokenizers installations.
+
+Four hand-written states cover choice, score and yes/no: all 12 typed answers, unrounded
+option logits, probabilities and action probabilities matched exactly between old and
+new code in every process. This is parity, not an accuracy evaluation. Comparing Torch
+with ONNX, maximum absolute logit difference was `5.60e-6`, probability difference
+`7.45e-7`, and the typed answers also matched. The host was otherwise uncontrolled;
+small warm timing differences do not show a speed improvement.
+
+Installed dependency files occupied **879.7 MiB** for the existing full `laya-pro[onnx]`
+closure and **134.4 MiB** for a fresh lightweight installation. These sums exclude project
+code and unrelated bootstrap tools; required dependencies such as Torch's setuptools
+remain included. The environments resolved different dependency versions, so these are
+two measured installations, not a comparison under one lockfile. These are RECORD-listed
+file bytes, not package download sizes, model weights or process RAM. The lightweight
+wheel itself was 88,182 bytes; its installed project files were 552,981 bytes.
+
+Reproduce with [the loading harness](research/scripts/bench_loading_memory.py) and the
+[runtime guide](docs/onnx-runtime.md). Raw process samples, memory stages, outputs,
+artifact/source hashes and commands:
+[Torch JSON](research/results/loading_memory_20261031_torch.json),
+[ONNX JSON](research/results/loading_memory_20261031_onnx.json),
+[installed dependency footprint and reproduction procedure](research/results/loading_memory_20261031_dependency_footprint.json),
+[isolated package measurements](research/results/loading_memory_20261031_light_package.json).

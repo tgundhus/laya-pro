@@ -8,12 +8,12 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
-from laya.hooks import (
+from .hooks import (
     HookRegistry, PredictContext, aggregate_usage, compose_hooks, dispatch, normalise_hooks,
     validate_timeout,
 )
-from laya.revisions import resolve_revision, snapshot_revision, verify_digests
-from laya.common import (
+from .revisions import resolve_revision, snapshot_revision, verify_digests
+from .inference_common import (
     QTYPES,
     answer_confidence,
     build_sequence,
@@ -32,8 +32,8 @@ from laya.common import (
     TEMP_MAX,
     clamp_temperature,
 )
-from laya.confidence import apply_confidence_gate, check_min_confidence
-from laya.performance import resolve_performance_mode
+from .confidence import apply_confidence_gate, check_min_confidence
+from .performance import resolve_performance_mode
 
 
 def _collate_items_numpy(batch: List[List[Dict[str, Any]]], pad_id: int) -> Dict[str, np.ndarray]:
@@ -85,6 +85,7 @@ class ONNXAgent(HookRegistry):
     model_id = None
     performance_config = None
     performance_mode = None
+    _tokenizer_backend = "transformers"
 
     def __init__(
         self,
@@ -148,7 +149,6 @@ class ONNXAgent(HookRegistry):
         self.subfolder = subfolder
 
         import onnxruntime as ort
-        from transformers import AutoTokenizer
 
         model_dir = model_id_or_path
         self.revision: Optional[str] = None
@@ -204,14 +204,19 @@ class ONNXAgent(HookRegistry):
         # Load Tokenizer.  Keep this compatibility fix in sync with Agent: checkpoints
         # produced by newer Transformers versions can contain TokenizersBackend or a list-valued
         # extra_special_tokens field that older loaders cannot parse.
-        from .agent import _checkpoint_signature, _fix_tokenizer_config
+        from .checkpoint import _checkpoint_signature, _fix_tokenizer_config
         _fix_tokenizer_config(model_dir)
         source_weights = os.path.join(model_dir, "model.safetensors")
         source_artifact = source_weights if os.path.isfile(source_weights) else onnx_path
         self._checkpoint_signature = (_checkpoint_signature(model_dir, source_artifact, expected_sha256)
                                       if self.revision is None else None)
         tok_dir = os.path.join(model_dir, "tokenizer")
-        self.tok = AutoTokenizer.from_pretrained(tok_dir if os.path.exists(tok_dir) else self.cfg.get("encoder"))
+        if self._tokenizer_backend == "tokenizers":
+            from .checkpoint import _NativeTokenizer
+            self.tok = _NativeTokenizer(tok_dir)
+        else:
+            from transformers import AutoTokenizer
+            self.tok = AutoTokenizer.from_pretrained(tok_dir if os.path.exists(tok_dir) else self.cfg.get("encoder"))
 
         # Initialize ONNX Runtime Session (auto-detect GPU if available)
         available = ort.get_available_providers()
@@ -271,7 +276,7 @@ class ONNXAgent(HookRegistry):
 
     def load_calibration(self, path: str) -> None:
         """Read a JSON map written by `save_calibration` onto this agent."""
-        from .calibrate import apply_calibration_payload
+        from .calibration import apply_calibration_payload
         with open(path) as f:
             payload = json.load(f)
         apply_calibration_payload(self, payload)
@@ -509,7 +514,7 @@ class ONNXAgent(HookRegistry):
         in `Agent.predict_long`: `truncated` is a window count and `truncated_questions` is the
         last window's list, so `truncated` can be above 0 while the list is empty.
         """
-        from .agent import _check_scan_budget, _replayed_from_memory, _scan_answer_index, _start_evidence, _with_start_probe
+        from .inference import _check_scan_budget, _replayed_from_memory, _scan_answer_index, _start_evidence, _with_start_probe
         from .hooks import aggregate_usage
 
         if batch_size is None and self.performance_config:
@@ -538,10 +543,10 @@ class ONNXAgent(HookRegistry):
         # `AttributeError: 'NoneType' object has no attribute 'items'` -- verbatim the message its
         # own docstring says it prevents, and a regression from `main` on this path. The torch
         # `predict_long` hoists both. `laya.serve` maps ValueError to 422 and anything else to 500.
-        from .agent import Agent as _Agent           # deferred, as `predict_batch` does
+        from .inference import _check_question
 
         for qid in ids:
-            _Agent._check_question(qid, questions[qid])
+            _check_question(qid, questions[qid])
         internal = {qid: self._to_internal(questions[qid]) for qid in ids}
         budget, step_default, room = window_budget(self.tok, [internal[qid] for qid in ids], max_len,
                                                    head_max_len, window=window, stride=stride)
@@ -747,7 +752,7 @@ class ONNXAgent(HookRegistry):
         answers = {}
         binning_map = getattr(self, "binning_map", None)
         if binning_map:
-            from .calibrate import apply_binning_map
+            from .calibration import apply_binning_map
         for r, qid in enumerate(ids):
             q = internal[qid]
             k = len(items[r]["markers"])
@@ -823,14 +828,14 @@ class ONNXAgent(HookRegistry):
         window of eight batches (the same contract as `Agent.predict_batch`), so a batch pads to
         a shorter maximum; results are returned in input order either way.
         """
-        from .agent import Agent as _Agent
+        from .inference import _check_question
 
         ids = list(questions.keys())
         if not ids:
             return [{"model": "laya-rl-agent-onnx", "answers": {},
                      "usage": {"input_tokens": 0, "output_tokens": 0}} for _ in states]
         for qid in ids:
-            _Agent._check_question(qid, questions[qid])
+            _check_question(qid, questions[qid])
         internal = {qid: self._to_internal(questions[qid]) for qid in ids}
         max_len = self.cfg.get("max_len", 512) if max_len is None else max_len
         head_max_len = self.cfg.get("head_max_len", 192) if head_max_len is None else head_max_len
@@ -902,7 +907,7 @@ class ONNXAgent(HookRegistry):
         See `laya.structured`. Pass exactly one of `schema` or `questions`; extra keyword arguments
         are forwarded to `predict` / `system_one`.
         """
-        from laya.structured import decide as _decide
+        from .structured import decide as _decide
         return _decide(self, state, schema, questions=questions,
                        return_details=return_details, min_confidence=min_confidence, **predict_kwargs)
 
@@ -911,7 +916,7 @@ class ONNXAgent(HookRegistry):
                      return_details: bool = False, min_confidence: Optional[float] = None,
                      **predict_kwargs) -> List[Any]:
         """Answer many states against one schema through `predict_batch`; see `laya.structured`."""
-        from laya.structured import decide_batch as _decide_batch
+        from .structured import decide_batch as _decide_batch
         return _decide_batch(self, states, schema, questions=questions,
                              return_details=return_details, min_confidence=min_confidence,
                              **predict_kwargs)

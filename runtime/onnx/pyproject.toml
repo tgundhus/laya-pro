@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=77.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "laya-pro-onnx"
+version = "0.3.29"
+description = "Local Laya-Pro ONNX inference without PyTorch or Transformers"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Convai Innovations" }, { name = "Tobias Gundhus" }]
+dependencies = ["numpy>=1.24.2", "onnxruntime>=1.20.0", "tokenizers>=0.20.0", "huggingface_hub>=0.20.0"]
+
+[project.optional-dependencies]
+structured = ["pydantic>=2.0.0"]
+
+[project.urls]
+Homepage = "https://tgundhus.github.io/laya-pro/"
+Documentation = "https://tgundhus.github.io/laya-pro/onnx-runtime/"
+Repository = "https://github.com/tgundhus/laya-pro"
+Issues = "https://github.com/tgundhus/laya-pro/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+laya_onnx = ["py.typed"]

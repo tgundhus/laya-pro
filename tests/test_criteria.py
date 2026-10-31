@@ -612,9 +612,8 @@ for room, kept in [(0, []), (2, ["two", "three"]), (10, ["one", "two", "three"])
 # The docstring now names the separators, and this gate holds it to the bytes the code emits.
 import ast  # noqa: E402
 
-_common_src_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                "laya", "common.py")
-with open(_common_src_path) as _common_f:
+_common_src_path = inspect.getsourcefile(render_criterion)
+with open(_common_src_path, encoding="utf-8") as _common_f:
     _common_src = _common_f.read()
 _criterion_doc = ""
 for _node in ast.parse(_common_src).body:

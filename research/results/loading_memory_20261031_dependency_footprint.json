@@ -1,0 +1,405 @@
+{
+  "scope": "Installed RECORD-listed file bytes on this Windows host; not download size, checkpoint weights, or process RAM. Full closure is the existing benchmark environment, not a fresh dependency resolution. Project code and unrelated pip/build bootstrap are excluded from dependency-only totals; setuptools remains included where declared by Torch. The light isolated environment has independently resolved dependency versions.",
+  "full_requirement": "laya-pro[onnx]",
+  "full_distributions": {
+    "onnxscript": {
+      "version": "0.7.2",
+      "bytes": 6806077
+    },
+    "typing-extensions": {
+      "version": "4.16.0",
+      "bytes": 349478
+    },
+    "packaging": {
+      "version": "26.3",
+      "bytes": 995770
+    },
+    "onnx": {
+      "version": "1.23.2",
+      "bytes": 23753688
+    },
+    "ml-dtypes": {
+      "version": "0.6.0",
+      "bytes": 1724962
+    },
+    "numpy": {
+      "version": "2.5.3",
+      "bytes": 54124792
+    },
+    "protobuf": {
+      "version": "7.36.2",
+      "bytes": 2748590
+    },
+    "onnx-ir": {
+      "version": "1.0.0",
+      "bytes": 1550136
+    },
+    "sympy": {
+      "version": "1.14.0",
+      "bytes": 69628751
+    },
+    "mpmath": {
+      "version": "1.3.0",
+      "bytes": 4579530
+    },
+    "onnxruntime": {
+      "version": "1.30.0",
+      "bytes": 46149729
+    },
+    "flatbuffers": {
+      "version": "25.12.19",
+      "bytes": 220658
+    },
+    "huggingface-hub": {
+      "version": "1.33.0",
+      "bytes": 7075826
+    },
+    "tqdm": {
+      "version": "4.70.1",
+      "bytes": 557353
+    },
+    "colorama": {
+      "version": "0.4.6",
+      "bytes": 169363
+    },
+    "pyyaml": {
+      "version": "6.0.3",
+      "bytes": 730450
+    },
+    "httpx": {
+      "version": "0.28.1",
+      "bytes": 743980
+    },
+    "idna": {
+      "version": "3.20",
+      "bytes": 626461
+    },
+    "httpcore": {
+      "version": "1.0.9",
+      "bytes": 627254
+    },
+    "h11": {
+      "version": "0.16.0",
+      "bytes": 185842
+    },
+    "certifi": {
+      "version": "2026.7.22",
+      "bytes": 254056
+    },
+    "anyio": {
+      "version": "4.15.1",
+      "bytes": 1284219
+    },
+    "hf-xet": {
+      "version": "1.7.0",
+      "bytes": 9664635
+    },
+    "fsspec": {
+      "version": "2026.9.0",
+      "bytes": 1824647
+    },
+    "filelock": {
+      "version": "4.0.12",
+      "bytes": 827372
+    },
+    "click": {
+      "version": "8.5.0",
+      "bytes": 954210
+    },
+    "safetensors": {
+      "version": "0.8.0",
+      "bytes": 911531
+    },
+    "transformers": {
+      "version": "5.19.0",
+      "bytes": 105608497
+    },
+    "typer": {
+      "version": "0.27.3",
+      "bytes": 1127908
+    },
+    "annotated-doc": {
+      "version": "0.0.5",
+      "bytes": 11907
+    },
+    "rich": {
+      "version": "15.0.0",
+      "bytes": 2591384
+    },
+    "pygments": {
+      "version": "2.21.0",
+      "bytes": 8646760
+    },
+    "markdown-it-py": {
+      "version": "4.2.0",
+      "bytes": 611255
+    },
+    "mdurl": {
+      "version": "0.1.2",
+      "bytes": 40217
+    },
+    "shellingham": {
+      "version": "1.5.4",
+      "bytes": 38082
+    },
+    "tokenizers": {
+      "version": "0.23.2",
+      "bytes": 8317421
+    },
+    "regex": {
+      "version": "2026.9.29",
+      "bytes": 1779969
+    },
+    "torch": {
+      "version": "2.14.1",
+      "bytes": 531605282
+    },
+    "jinja2": {
+      "version": "3.1.6",
+      "bytes": 1172896
+    },
+    "markupsafe": {
+      "version": "3.0.4",
+      "bytes": 57547
+    },
+    "networkx": {
+      "version": "3.7",
+      "bytes": 16275543
+    },
+    "setuptools": {
+      "version": "84.0.0",
+      "bytes": 5457243
+    }
+  },
+  "full_requires_dist_edges": {
+    "laya-pro": [
+      "torch>=2.0.0",
+      "transformers>=4.48.0",
+      "safetensors>=0.4.0",
+      "huggingface_hub>=0.20.0",
+      "numpy>=1.20.0",
+      "onnx; extra == \"onnx\"",
+      "onnxruntime; extra == \"onnx\"",
+      "onnxscript; extra == \"onnx\""
+    ],
+    "onnxscript": [
+      "ml_dtypes",
+      "numpy",
+      "onnx_ir<2,>=0.1.16",
+      "onnx>=1.17",
+      "packaging",
+      "typing_extensions>=4.10"
+    ],
+    "typing-extensions": [],
+    "packaging": [],
+    "onnx": [
+      "numpy>=1.23.2",
+      "protobuf>=6.31.1",
+      "typing_extensions>=4.7.1",
+      "ml_dtypes>=0.5.4"
+    ],
+    "ml-dtypes": [
+      "numpy>=2.0.0"
+    ],
+    "numpy": [],
+    "protobuf": [],
+    "onnx-ir": [
+      "numpy",
+      "onnx>=1.16",
+      "typing_extensions>=4.10",
+      "ml_dtypes>=0.5.0",
+      "sympy>=1.13"
+    ],
+    "sympy": [
+      "mpmath<1.4,>=1.1.0"
+    ],
+    "mpmath": [],
+    "onnxruntime": [
+      "flatbuffers",
+      "numpy>=1.21.6",
+      "packaging",
+      "protobuf>=4.25.8"
+    ],
+    "flatbuffers": [],
+    "huggingface-hub": [
+      "click<9.0.0,>=8.4.2",
+      "filelock>=3.10.0",
+      "fsspec>=2023.5.0",
+      "hf-xet<2.0.0,>=1.6.0; platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"arm64\" or platform_machine == \"aarch64\"",
+      "httpx<1,>=0.23.0",
+      "packaging>=20.9",
+      "pyyaml>=5.1",
+      "tqdm>=4.42.1",
+      "typing-extensions>=4.1.0"
+    ],
+    "tqdm": [
+      "colorama; platform_system == \"Windows\""
+    ],
+    "colorama": [],
+    "pyyaml": [],
+    "httpx": [
+      "anyio",
+      "certifi",
+      "httpcore==1.*",
+      "idna"
+    ],
+    "idna": [],
+    "httpcore": [
+      "certifi",
+      "h11>=0.16"
+    ],
+    "h11": [],
+    "certifi": [],
+    "anyio": [
+      "idna>=2.8",
+      "typing_extensions>=4.16.0; python_version < \"3.15\""
+    ],
+    "hf-xet": [],
+    "fsspec": [],
+    "filelock": [],
+    "click": [],
+    "safetensors": [],
+    "transformers": [
+      "huggingface-hub<3.0,>=1.31.0",
+      "numpy>=1.17",
+      "packaging>=20.0",
+      "pyyaml>=5.1",
+      "regex>=2025.10.22",
+      "tokenizers<0.24.0,>=0.23.1",
+      "typer",
+      "safetensors>=0.8.0",
+      "tqdm>=4.60"
+    ],
+    "typer": [
+      "shellingham>=1.3.0",
+      "rich>=13.8.0",
+      "annotated-doc>=0.0.2",
+      "colorama; platform_system == \"Windows\""
+    ],
+    "annotated-doc": [],
+    "rich": [
+      "markdown-it-py (>=2.2.0)",
+      "pygments (>=2.13.0,<3.0.0)"
+    ],
+    "pygments": [],
+    "markdown-it-py": [
+      "mdurl~=0.1"
+    ],
+    "mdurl": [],
+    "shellingham": [],
+    "tokenizers": [
+      "huggingface-hub>=0.16.4,<2.0"
+    ],
+    "regex": [],
+    "torch": [
+      "filelock",
+      "typing-extensions>=4.10.0",
+      "setuptools>=77.0.3",
+      "sympy>=1.13.3",
+      "networkx>=2.5.1",
+      "jinja2",
+      "fsspec>=0.8.5"
+    ],
+    "jinja2": [
+      "MarkupSafe>=2.0"
+    ],
+    "markupsafe": [],
+    "networkx": [],
+    "setuptools": []
+  },
+  "full_dependency_bytes": 922411271,
+  "light_dependency_bytes": 140973691,
+  "light_dependency_distributions": {
+    "anyio": {
+      "version": "4.15.1",
+      "bytes": 1285461
+    },
+    "click": {
+      "version": "8.5.0",
+      "bytes": 954669
+    },
+    "colorama": {
+      "version": "0.4.6",
+      "bytes": 169714
+    },
+    "filelock": {
+      "version": "4.2.5",
+      "bytes": 1222922
+    },
+    "flatbuffers": {
+      "version": "25.12.19",
+      "bytes": 220928
+    },
+    "fsspec": {
+      "version": "2026.9.0",
+      "bytes": 1826213
+    },
+    "h11": {
+      "version": "0.16.0",
+      "bytes": 186139
+    },
+    "hf-xet": {
+      "version": "1.8.0",
+      "bytes": 9823117
+    },
+    "httpcore2": {
+      "version": "2.16.0",
+      "bytes": 664642
+    },
+    "httpx2": {
+      "version": "2.16.0",
+      "bytes": 1005131
+    },
+    "huggingface_hub": {
+      "version": "2.4.0",
+      "bytes": 7051664
+    },
+    "idna": {
+      "version": "3.20",
+      "bytes": 626758
+    },
+    "numpy": {
+      "version": "2.5.4",
+      "bytes": 54180478
+    },
+    "onnxruntime": {
+      "version": "1.31.1",
+      "bytes": 47929048
+    },
+    "packaging": {
+      "version": "26.3",
+      "bytes": 996364
+    },
+    "protobuf": {
+      "version": "7.36.2",
+      "bytes": 2750156
+    },
+    "PyYAML": {
+      "version": "6.0.3",
+      "bytes": 730936
+    },
+    "tokenizers": {
+      "version": "0.23.3",
+      "bytes": 8318995
+    },
+    "tqdm": {
+      "version": "4.70.1",
+      "bytes": 558217
+    },
+    "truststore": {
+      "version": "0.10.5",
+      "bytes": 122634
+    },
+    "typing_extensions": {
+      "version": "4.16.0",
+      "bytes": 349505
+    }
+  },
+  "light_wheel_bytes": 88182,
+  "light_sdist_bytes": 82867,
+  "light_project_installed_bytes": 552981,
+  "procedure": "Read laya-pro installed Requires-Dist metadata with the onnx extra; evaluate markers against this interpreter and each selected extra, recursively propagate dependency extras, and revisit packages when an extra is added. Sum existing files listed by each selected distribution RECORD. Exclude laya-pro editable project bytes. For light, sum all isolated report distributions except pip, setuptools, wheel, and laya-pro-onnx. No download or new full installation.",
+  "reproduction_python": "import importlib.metadata as md\nimport json\nfrom packaging.requirements import Requirement\nfrom packaging.utils import canonicalize_name\nextras={'laya-pro': {'onnx'}}\npending=['laya-pro']\nprocessed={}\nrows={}\nwhile pending:\n    name=canonicalize_name(pending.pop())\n    selected=extras.get(name,set())\n    if name in processed and selected <= processed[name]:\n        continue\n    processed[name]=set(selected)\n    dist=md.distribution(name)\n    for raw in dist.requires or []:\n        req=Requirement(raw)\n        if req.marker and not any(req.marker.evaluate({'extra': extra}) for extra in {''} | selected):\n            continue\n        dep=canonicalize_name(req.name)\n        extras.setdefault(dep,set()).update(req.extras)\n        pending.append(dep)\n    files=[dist.locate_file(p) for p in dist.files or []]\n    rows[name]={'version':dist.version,'bytes':sum(p.stat().st_size for p in files if p.is_file())}\nrows.pop('laya-pro',None)\nlight=json.load(open('research/results/loading_memory_20261031_light_package.json',encoding='utf-8'))\nsmall={k:v for k,v in light['distributions'].items() if canonicalize_name(k) not in {'pip','setuptools','wheel','laya-pro-onnx'}}\nprint(json.dumps({'full_dependency_bytes':sum(v['bytes'] for k,v in rows.items() if k!='laya-pro'),\n                  'light_dependency_bytes':sum(v['bytes'] for v in small.values()),\n                  'full_distributions':rows,'light_dependency_distributions':small},indent=2))\n",
+  "reproduction_command": "python -c \"import json; exec(json.load(open('research/results/loading_memory_20261031_dependency_footprint.json', encoding='utf-8'))['reproduction_python'])\"",
+  "full_project_version": "0.3.29"
+}

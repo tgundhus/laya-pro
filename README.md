@@ -33,6 +33,12 @@ The first model load downloads a checkpoint. Inference runs locally. For offline
 download checkpoints beforehand and pass their directories to the Router.
 [Installation and platform notes](https://github.com/tgundhus/laya-pro/blob/main/docs/guide.md#installation).
 
+For an exported ONNX model, the separate `laya-pro-onnx` distribution uses the
+`laya_onnx` import and runs without PyTorch or Transformers. Install from a checkout
+with `python -m pip install ./runtime/onnx`; it has not been published to a registry.
+The full package remains the export toolchain.
+[Lightweight ONNX setup](https://tgundhus.github.io/laya-pro/onnx-runtime/).
+
 ## First decision
 
 ```python
@@ -121,6 +127,12 @@ for an instance. Modes keep the same model and precision. Higher modes are not n
 faster on your hardware. [Mode budgets and measurements](https://github.com/tgundhus/laya-pro/blob/main/docs/performance-modes.md).
 
 ## Measurements
+
+On a pinned real English CPU checkpoint, bounded loading reduced peak working set by
+764 MiB (28%), with unchanged steady memory and inference time. The standalone ONNX
+runtime reduced startup to the first answer from 5.37 to 1.78 s on the same graph;
+warm inference stayed the same and all 12 typed answers matched exactly.
+[Loading measurements and limits](https://github.com/tgundhus/laya-pro/blob/main/BENCHMARKS.md#loading-memory-and-standalone-onnx-31-october-2026).
 
 The October CPU check used a pinned English checkpoint, fp32 and four threads. Median single
 inference was 571.5 ms; a SQLite repeat was 0.148 ms. All 12 answers agreed between serial and

@@ -1,0 +1,3244 @@
+{
+  "command": "research/scripts/bench_loading_memory.py --model C:/Users/TGUNDHUS-PWR/.cache/huggingface/hub/models--convaiinnovations--laya/snapshots/55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851 --runtime torch --threads 4 --baseline-directory .venv/loading-baseline-verified --out research/results/loading_memory_20261031_torch.json",
+  "started_utc": "2026-10-31T08:45:32.008620+00:00",
+  "baseline_revision": "6867bc3df62e40f656fc7062f34fca0fa7fdd252",
+  "runtime": "torch",
+  "threads": 4,
+  "process_runs": 3,
+  "repeats": 5,
+  "warmups": 1,
+  "checkpoint_dtypes": [
+    "F16",
+    "F32"
+  ],
+  "artifacts": {
+    "C:\\Users\\TGUNDHUS-PWR\\.cache\\huggingface\\hub\\models--convaiinnovations--laya\\snapshots\\55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851\\model.safetensors": {
+      "bytes": 842609210,
+      "sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c"
+    },
+    "C:\\Users\\TGUNDHUS-PWR\\.cache\\huggingface\\hub\\models--convaiinnovations--laya\\snapshots\\55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851\\rl_agent_config.json": {
+      "bytes": 745,
+      "sha256": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd"
+    },
+    "C:\\Users\\TGUNDHUS-PWR\\.cache\\huggingface\\hub\\models--convaiinnovations--laya\\snapshots\\55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851\\tokenizer\\tokenizer.json": {
+      "bytes": 3583228,
+      "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+    },
+    "C:\\Users\\TGUNDHUS-PWR\\.cache\\huggingface\\hub\\models--convaiinnovations--laya\\snapshots\\55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851\\tokenizer\\tokenizer_config.json": {
+      "bytes": 308,
+      "sha256": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12"
+    }
+  },
+  "source_sha256": {
+    "laya\\__init__.py": "8617ebdfcbc084068e2339c0fef5917e9975a6b82061fd3fcd167470a2e16ea3",
+    "laya\\_agreement.py": "7898f96de5339ba422b04573f06d09205d0a381ddf59537419ea62d61faf9c84",
+    "laya\\_compile.py": "ad1c155d822590a32c067dcdb9bba0eaaa5ad5ec0a768fbae372e832e4f20b38",
+    "laya\\_eval_policy.py": "b5dc6b1adda855d04f4ebade99172f67645b2e744aaba85e68fed6c1260585d6",
+    "laya\\_loading.py": "c591f1f8ab754f3f653fa051481d38c541fc78172c06f9d8a986dba1d60802fc",
+    "laya\\agent.py": "a5e9d7cd7265a17b631f1b3c424f312b79e8c6ac8f87e53c02fde62461e83ab7",
+    "laya\\calibrate.py": "5e144318d490204b860996bd55fa6401a08d0f26a4870ef8725c5e2906555045",
+    "laya\\calibration.py": "aaaf669f67056b2e08c003de3a72a6d149d81f4ba5d9ba24855784cc574dfc98",
+    "laya\\checkpoint.py": "a79ca2cb6fd027920048fb76eb82dd4c78ad4a0f8255aadfd3b07471d1701520",
+    "laya\\cli.py": "af98d644afc21db9fdd35d44fb7a75ba8eeab309d5c30669439393c9f2811b2b",
+    "laya\\common.py": "bab0075c2374d825bc889b982503eb70d7fa63ae76c88c0252e96cda8a54d3f2",
+    "laya\\confidence.py": "9b3f7487d105d3c57452264cddee503809f71a5be80d1065dcac9ed310148719",
+    "laya\\consistency.py": "12d878604c995f8abf17273e61ea706c3d0bef9ca7c78c112b5481c7a907145f",
+    "laya\\email.py": "b1cf0a30abcc7e578c17ee5bb450037a2f9f70139d6b1671ef008d83df0f77e9",
+    "laya\\evals.py": "1c99e45c07b4db2c4617eb683d4ddef26634087e70ec39f8d1392609089dcb27",
+    "laya\\evals_cli.py": "aba49904b3e37c19a939a891dae9e9671785f34a99097986e9d0646a28829aa9",
+    "laya\\evals_shortlist.py": "315ef4cb6ddd11cb2ce7082689250e6458d625183f2459b29be5ec6726133d0e",
+    "laya\\evidence.py": "00d2eb9285d00cc15e3c8078a56a99ebb75ecb977bb6e64da16e8eed2b828711",
+    "laya\\fast.py": "e2feef1705f08f8b1d6e8a8d126dd726128ec7849edde92b8f4b1d17ef7ab5dd",
+    "laya\\hooks.py": "2d2a02dff4337b19a11567a7456bb60d189bce65c0bb5baed565f2cfb0872ba4",
+    "laya\\inference.py": "5f3515463aa8db126b8de0ed6c92ef9840cbb54bb977590de6f5edc6dcc069f3",
+    "laya\\inference_common.py": "6e138d9ae766b23f01f59aea617e53395e13ae8bbb66c81825092c4a32b83693",
+    "laya\\lang.py": "a8de7388bccfe015e6da72973addafa6f7ca83bc0225465e4d3c6e891ca62ada",
+    "laya\\onnx_agent.py": "7510314055994a58b7db02fb6950ba3bc3b0fc685f420dfc5474d6b51668f90c",
+    "laya\\performance.py": "97c9cbebc288d8ec50173caa7868a783230a0836c11de510cf911ebb50a7dd9b",
+    "laya\\presets.py": "733040bc4b0a02c26f891c1d4f4650551e92bf4b273a78793909e1e944ca1236",
+    "laya\\revisions.py": "de36d888d3ec09832f70cd06773774cb9e30d2ff0527df59ebdab2513de4968b",
+    "laya\\router.py": "bb2b6d82c3a57703f68f806c80cec1e4fac738f7dd2da3b59a108d6686709a2a",
+    "laya\\serve.py": "36bad065faac50cc1ae5606eb9e1b12b6f9e29bc11e922a25e0a82132e4430a3",
+    "laya\\shortlist.py": "3ea9b7bac0d7f49be6b244758cfdef52c0a7a7235639c9661300bb84c24b9018",
+    "laya\\structured.py": "48157ae8d53ef17128d2b0e3e923c11dce2bc443ac6c1e0e0cb9d80b432084f6",
+    "laya\\tl_kernels.py": "05d77796a773d6fa719e8b90434b4de4f003beae46996d618b8dc6a571627e17",
+    "laya\\train.py": "7734fbd896ebc519058b84493ac461337b9df03c1cdbaaf1385fab909cea36cb",
+    "laya\\train_cli.py": "5365695d4adf044f8691369bf7eb02001d6b72d50b5db74bc4f364b86c504c05"
+  },
+  "harness_sha256": "0011fe2270cf04192b7607388caec530491d3fd35bfe3b1c088584bc2db2a5cd",
+  "questions": {
+    "team": {
+      "type": "choice",
+      "instructions": "Which team should handle this request?",
+      "criteria": {
+        "billing": "payments, invoices and refunds",
+        "technical": "errors, outages and account access",
+        "sales": "new purchases and pricing",
+        "other": "other requests"
+      }
+    },
+    "urgent": {
+      "type": "noul",
+      "instructions": "Does this request need immediate action?"
+    },
+    "severity": {
+      "type": "score",
+      "instructions": "How severe is this problem?",
+      "criteria": [
+        "no active problem",
+        "minor inconvenience",
+        "service unavailable"
+      ]
+    }
+  },
+  "states": [
+    "My account was charged twice. Please refund the duplicate charge.",
+    "Our production service is down and customers cannot sign in. We need help immediately.",
+    "We are comparing plans for next quarter. Please send a quote for twenty new licenses. There is no deadline this week; a reply whenever you have the pricing information is fine.",
+    "Thank you for the update and for your help with the earlier request. Everything is working again and there are no outstanding problems. This message is only to confirm that the case can be closed. No further work or reply is needed."
+  ],
+  "runs": [
+    {
+      "variant": "baseline",
+      "runtime": "torch",
+      "source": "C:\\Users\\TGUNDHUS-PWR\\Documents\\Personal\\Github\\Laya-Pro\\.venv\\loading-baseline-verified",
+      "import_s": 1.2209371000062674,
+      "agent_load_s": 3.241828199941665,
+      "first_predict_s": 0.25118599995039403,
+      "startup_to_first_answer_s": 4.714219199959189,
+      "prediction_ms": [
+        248.1942999875173,
+        249.80869994033128,
+        245.76650001108646,
+        246.44090002402663,
+        250.95529993996024
+      ],
+      "forward_ms": [
+        251.68660003691912,
+        249.9631999526173,
+        250.09610003326088,
+        248.986899969168,
+        247.22739995922893
+      ],
+      "memory_stages": {
+        "after_imports": {
+          "working_set_bytes": 205025280,
+          "private_commit_bytes": 287965184,
+          "peak_working_set_bytes": 205025280,
+          "peak_commit_bytes": 287965184,
+          "page_faults": 51874,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_load": {
+          "working_set_bytes": 2025394176,
+          "private_commit_bytes": 2735357952,
+          "peak_working_set_bytes": 2867986432,
+          "peak_commit_bytes": 4423774208,
+          "page_faults": 758717,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_first_answer": {
+          "working_set_bytes": 2047291392,
+          "private_commit_bytes": 2776981504,
+          "peak_working_set_bytes": 2867986432,
+          "peak_commit_bytes": 4423774208,
+          "page_faults": 764096,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_warm_predictions": {
+          "working_set_bytes": 2052153344,
+          "private_commit_bytes": 2776981504,
+          "peak_working_set_bytes": 2867986432,
+          "peak_commit_bytes": 4423774208,
+          "page_faults": 765283,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_parity_and_forward": {
+          "working_set_bytes": 2066477056,
+          "private_commit_bytes": 2841530368,
+          "peak_working_set_bytes": 2867986432,
+          "peak_commit_bytes": 4423774208,
+          "page_faults": 771445,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        }
+      },
+      "parameter_dtypes": [
+        "torch.float32"
+      ],
+      "loading_mode": "legacy_copy",
+      "records": [
+        {
+          "question": "team",
+          "logits": [
+            3.5609469413757324,
+            -2.0456695556640625,
+            -2.622833728790283,
+            -2.185610055923462
+          ],
+          "probabilities": [
+            0.9014115333557129,
+            0.03728753700852394,
+            0.026863086968660355,
+            0.03443778306245804
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            2.051953077316284,
+            0.5513394474983215
+          ],
+          "probabilities": [
+            0.6806122064590454,
+            0.3193877637386322
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            -0.7180005311965942,
+            1.7566019296646118,
+            1.6235072612762451
+          ],
+          "probabilities": [
+            0.06793804466724396,
+            0.4907897710800171,
+            0.44127213954925537
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -3.2827701568603516,
+            3.5479512214660645,
+            -2.1538290977478027,
+            -1.330501675605774
+          ],
+          "probabilities": [
+            0.018385132774710655,
+            0.8909597396850586,
+            0.0349154956638813,
+            0.05573956295847893
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            -3.4796037673950195,
+            1.4474461078643799
+          ],
+          "probabilities": [
+            0.07697725296020508,
+            0.9230227470397949
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            -2.7293219566345215,
+            -0.4795503616333008,
+            3.8492181301116943
+          ],
+          "probabilities": [
+            0.0050274962559342384,
+            0.030346551910042763,
+            0.9646259546279907
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -0.4125616252422333,
+            -1.8162871599197388,
+            2.0607733726501465,
+            -0.9789487719535828
+          ],
+          "probabilities": [
+            0.1599595844745636,
+            0.0720541924238205,
+            0.6520386934280396,
+            0.11594754457473755
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            1.0721412897109985,
+            0.7906872630119324
+          ],
+          "probabilities": [
+            0.5354167819023132,
+            0.4645831882953644
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            2.0607821941375732,
+            2.021547317504883,
+            0.8166435956954956
+          ],
+          "probabilities": [
+            0.42750322818756104,
+            0.414308100938797,
+            0.15818865597248077
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -1.3764609098434448,
+            0.5943278670310974,
+            -1.075298547744751,
+            -0.2752108573913574
+          ],
+          "probabilities": [
+            0.14045092463493347,
+            0.4303194582462311,
+            0.16666041314601898,
+            0.2625690996646881
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            -2.0853731632232666,
+            1.1535885334014893
+          ],
+          "probabilities": [
+            0.16341495513916016,
+            0.8365850448608398
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            3.973501682281494,
+            -0.09928068518638611,
+            -1.5792734622955322
+          ],
+          "probabilities": [
+            0.9519913792610168,
+            0.03674688562750816,
+            0.01126175094395876
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "billing",
+              "probabilities": {
+                "billing": 0.9014,
+                "technical": 0.0373,
+                "sales": 0.0269,
+                "other": 0.0344
+              },
+              "confidence": 0.6903,
+              "answer_confidence": 0.9014,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.3194,
+              "confidence": 0.6806,
+              "answer_confidence": 0.6806,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.3733,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.0679,
+                "1": 0.4908,
+                "2": 0.4413
+              },
+              "confidence": 0.1871,
+              "answer_confidence": 0.4908,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 147,
+            "output_tokens": 0,
+            "state_tokens": 12,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "technical",
+              "probabilities": {
+                "billing": 0.0184,
+                "technical": 0.891,
+                "sales": 0.0349,
+                "other": 0.0557
+              },
+              "confidence": 0.6722,
+              "answer_confidence": 0.891,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.923,
+              "confidence": 0.923,
+              "answer_confidence": 0.923,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.9596,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.005,
+                "1": 0.0303,
+                "2": 0.9646
+              },
+              "confidence": 0.8476,
+              "answer_confidence": 0.9646,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 159,
+            "output_tokens": 0,
+            "state_tokens": 16,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "sales",
+              "probabilities": {
+                "billing": 0.16,
+                "technical": 0.0721,
+                "sales": 0.652,
+                "other": 0.1159
+              },
+              "confidence": 0.2704,
+              "answer_confidence": 0.652,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.4646,
+              "confidence": 0.5354,
+              "answer_confidence": 0.5354,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 0.7307,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.4275,
+                "1": 0.4143,
+                "2": 0.1582
+              },
+              "confidence": 0.0715,
+              "answer_confidence": 0.4275,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 216,
+            "output_tokens": 0,
+            "state_tokens": 35,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "technical",
+              "probabilities": {
+                "billing": 0.1405,
+                "technical": 0.4303,
+                "sales": 0.1667,
+                "other": 0.2626
+              },
+              "confidence": 0.0707,
+              "answer_confidence": 0.4303,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.8366,
+              "confidence": 0.8366,
+              "answer_confidence": 0.8366,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 0.0593,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.952,
+                "1": 0.0367,
+                "2": 0.0113
+              },
+              "confidence": 0.8009,
+              "answer_confidence": 0.952,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 249,
+            "output_tokens": 0,
+            "state_tokens": 46,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        }
+      ],
+      "environment": {
+        "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+        "platform": "Windows-11-10.0.26300-SP0",
+        "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+        "logical_cpus": 32,
+        "threads": 4,
+        "torch_interop_threads": 1,
+        "numpy": "2.5.3",
+        "torch": "2.14.1+cpu"
+      },
+      "imported_torch": true,
+      "imported_transformers": true,
+      "process_repeat": 1
+    },
+    {
+      "variant": "current",
+      "runtime": "torch",
+      "source": "C:\\Users\\TGUNDHUS-PWR\\Documents\\Personal\\Github\\Laya-Pro",
+      "import_s": 1.223240000079386,
+      "agent_load_s": 3.3227936000330374,
+      "first_predict_s": 0.2531493999995291,
+      "startup_to_first_answer_s": 4.799380700103939,
+      "prediction_ms": [
+        246.4918999467045,
+        248.23909997940063,
+        246.31489999592304,
+        247.62050004210323,
+        246.468500001356
+      ],
+      "forward_ms": [
+        243.191699963063,
+        242.93489998672158,
+        244.75479999091476,
+        246.68530002236366,
+        244.71499992068857
+      ],
+      "memory_stages": {
+        "after_imports": {
+          "working_set_bytes": 205271040,
+          "private_commit_bytes": 288501760,
+          "peak_working_set_bytes": 205271040,
+          "peak_commit_bytes": 288501760,
+          "page_faults": 51923,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_load": {
+          "working_set_bytes": 2025566208,
+          "private_commit_bytes": 2736779264,
+          "peak_working_set_bytes": 2028630016,
+          "peak_commit_bytes": 4425302016,
+          "page_faults": 759744,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_first_answer": {
+          "working_set_bytes": 2047496192,
+          "private_commit_bytes": 2778640384,
+          "peak_working_set_bytes": 2047496192,
+          "peak_commit_bytes": 4425302016,
+          "page_faults": 765132,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_warm_predictions": {
+          "working_set_bytes": 2052325376,
+          "private_commit_bytes": 2778640384,
+          "peak_working_set_bytes": 2052325376,
+          "peak_commit_bytes": 4425302016,
+          "page_faults": 766311,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_parity_and_forward": {
+          "working_set_bytes": 2066493440,
+          "private_commit_bytes": 2843189248,
+          "peak_working_set_bytes": 2066493440,
+          "peak_commit_bytes": 4425302016,
+          "page_faults": 772435,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        }
+      },
+      "parameter_dtypes": [
+        "torch.float32"
+      ],
+      "loading_mode": "stream",
+      "records": [
+        {
+          "question": "team",
+          "logits": [
+            3.5609469413757324,
+            -2.0456695556640625,
+            -2.622833728790283,
+            -2.185610055923462
+          ],
+          "probabilities": [
+            0.9014115333557129,
+            0.03728753700852394,
+            0.026863086968660355,
+            0.03443778306245804
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            2.051953077316284,
+            0.5513394474983215
+          ],
+          "probabilities": [
+            0.6806122064590454,
+            0.3193877637386322
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            -0.7180005311965942,
+            1.7566019296646118,
+            1.6235072612762451
+          ],
+          "probabilities": [
+            0.06793804466724396,
+            0.4907897710800171,
+            0.44127213954925537
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -3.2827701568603516,
+            3.5479512214660645,
+            -2.1538290977478027,
+            -1.330501675605774
+          ],
+          "probabilities": [
+            0.018385132774710655,
+            0.8909597396850586,
+            0.0349154956638813,
+            0.05573956295847893
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            -3.4796037673950195,
+            1.4474461078643799
+          ],
+          "probabilities": [
+            0.07697725296020508,
+            0.9230227470397949
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            -2.7293219566345215,
+            -0.4795503616333008,
+            3.8492181301116943
+          ],
+          "probabilities": [
+            0.0050274962559342384,
+            0.030346551910042763,
+            0.9646259546279907
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -0.4125616252422333,
+            -1.8162871599197388,
+            2.0607733726501465,
+            -0.9789487719535828
+          ],
+          "probabilities": [
+            0.1599595844745636,
+            0.0720541924238205,
+            0.6520386934280396,
+            0.11594754457473755
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            1.0721412897109985,
+            0.7906872630119324
+          ],
+          "probabilities": [
+            0.5354167819023132,
+            0.4645831882953644
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            2.0607821941375732,
+            2.021547317504883,
+            0.8166435956954956
+          ],
+          "probabilities": [
+            0.42750322818756104,
+            0.414308100938797,
+            0.15818865597248077
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -1.3764609098434448,
+            0.5943278670310974,
+            -1.075298547744751,
+            -0.2752108573913574
+          ],
+          "probabilities": [
+            0.14045092463493347,
+            0.4303194582462311,
+            0.16666041314601898,
+            0.2625690996646881
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            -2.0853731632232666,
+            1.1535885334014893
+          ],
+          "probabilities": [
+            0.16341495513916016,
+            0.8365850448608398
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            3.973501682281494,
+            -0.09928068518638611,
+            -1.5792734622955322
+          ],
+          "probabilities": [
+            0.9519913792610168,
+            0.03674688562750816,
+            0.01126175094395876
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "billing",
+              "probabilities": {
+                "billing": 0.9014,
+                "technical": 0.0373,
+                "sales": 0.0269,
+                "other": 0.0344
+              },
+              "confidence": 0.6903,
+              "answer_confidence": 0.9014,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.3194,
+              "confidence": 0.6806,
+              "answer_confidence": 0.6806,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.3733,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.0679,
+                "1": 0.4908,
+                "2": 0.4413
+              },
+              "confidence": 0.1871,
+              "answer_confidence": 0.4908,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 147,
+            "output_tokens": 0,
+            "state_tokens": 12,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "technical",
+              "probabilities": {
+                "billing": 0.0184,
+                "technical": 0.891,
+                "sales": 0.0349,
+                "other": 0.0557
+              },
+              "confidence": 0.6722,
+              "answer_confidence": 0.891,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.923,
+              "confidence": 0.923,
+              "answer_confidence": 0.923,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.9596,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.005,
+                "1": 0.0303,
+                "2": 0.9646
+              },
+              "confidence": 0.8476,
+              "answer_confidence": 0.9646,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 159,
+            "output_tokens": 0,
+            "state_tokens": 16,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "sales",
+              "probabilities": {
+                "billing": 0.16,
+                "technical": 0.0721,
+                "sales": 0.652,
+                "other": 0.1159
+              },
+              "confidence": 0.2704,
+              "answer_confidence": 0.652,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.4646,
+              "confidence": 0.5354,
+              "answer_confidence": 0.5354,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 0.7307,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.4275,
+                "1": 0.4143,
+                "2": 0.1582
+              },
+              "confidence": 0.0715,
+              "answer_confidence": 0.4275,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 216,
+            "output_tokens": 0,
+            "state_tokens": 35,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "technical",
+              "probabilities": {
+                "billing": 0.1405,
+                "technical": 0.4303,
+                "sales": 0.1667,
+                "other": 0.2626
+              },
+              "confidence": 0.0707,
+              "answer_confidence": 0.4303,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.8366,
+              "confidence": 0.8366,
+              "answer_confidence": 0.8366,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 0.0593,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.952,
+                "1": 0.0367,
+                "2": 0.0113
+              },
+              "confidence": 0.8009,
+              "answer_confidence": 0.952,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 249,
+            "output_tokens": 0,
+            "state_tokens": 46,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        }
+      ],
+      "environment": {
+        "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+        "platform": "Windows-11-10.0.26300-SP0",
+        "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+        "logical_cpus": 32,
+        "threads": 4,
+        "torch_interop_threads": 1,
+        "numpy": "2.5.3",
+        "torch": "2.14.1+cpu"
+      },
+      "imported_torch": true,
+      "imported_transformers": true,
+      "process_repeat": 1
+    },
+    {
+      "variant": "current",
+      "runtime": "torch",
+      "source": "C:\\Users\\TGUNDHUS-PWR\\Documents\\Personal\\Github\\Laya-Pro",
+      "import_s": 1.1461524000624195,
+      "agent_load_s": 3.1741492999717593,
+      "first_predict_s": 0.2528362999437377,
+      "startup_to_first_answer_s": 4.57333479996305,
+      "prediction_ms": [
+        245.95050001516938,
+        244.63319999631494,
+        243.77010005991906,
+        246.33460002951324,
+        243.82149998564273
+      ],
+      "forward_ms": [
+        247.3940000636503,
+        244.24379994161427,
+        247.84089997410774,
+        245.45610009226948,
+        243.36350010707974
+      ],
+      "memory_stages": {
+        "after_imports": {
+          "working_set_bytes": 205389824,
+          "private_commit_bytes": 288555008,
+          "peak_working_set_bytes": 205389824,
+          "peak_commit_bytes": 288555008,
+          "page_faults": 51931,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_load": {
+          "working_set_bytes": 2025996288,
+          "private_commit_bytes": 2735661056,
+          "peak_working_set_bytes": 2029060096,
+          "peak_commit_bytes": 4424187904,
+          "page_faults": 759919,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_first_answer": {
+          "working_set_bytes": 2047926272,
+          "private_commit_bytes": 2777530368,
+          "peak_working_set_bytes": 2047926272,
+          "peak_commit_bytes": 4424187904,
+          "page_faults": 765304,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_warm_predictions": {
+          "working_set_bytes": 2053521408,
+          "private_commit_bytes": 2777530368,
+          "peak_working_set_bytes": 2053521408,
+          "peak_commit_bytes": 4424187904,
+          "page_faults": 766670,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_parity_and_forward": {
+          "working_set_bytes": 2068344832,
+          "private_commit_bytes": 2842415104,
+          "peak_working_set_bytes": 2068672512,
+          "peak_commit_bytes": 4424187904,
+          "page_faults": 771549,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        }
+      },
+      "parameter_dtypes": [
+        "torch.float32"
+      ],
+      "loading_mode": "stream",
+      "records": [
+        {
+          "question": "team",
+          "logits": [
+            3.5609469413757324,
+            -2.0456695556640625,
+            -2.622833728790283,
+            -2.185610055923462
+          ],
+          "probabilities": [
+            0.9014115333557129,
+            0.03728753700852394,
+            0.026863086968660355,
+            0.03443778306245804
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            2.051953077316284,
+            0.5513394474983215
+          ],
+          "probabilities": [
+            0.6806122064590454,
+            0.3193877637386322
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            -0.7180005311965942,
+            1.7566019296646118,
+            1.6235072612762451
+          ],
+          "probabilities": [
+            0.06793804466724396,
+            0.4907897710800171,
+            0.44127213954925537
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -3.2827701568603516,
+            3.5479512214660645,
+            -2.1538290977478027,
+            -1.330501675605774
+          ],
+          "probabilities": [
+            0.018385132774710655,
+            0.8909597396850586,
+            0.0349154956638813,
+            0.05573956295847893
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            -3.4796037673950195,
+            1.4474461078643799
+          ],
+          "probabilities": [
+            0.07697725296020508,
+            0.9230227470397949
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            -2.7293219566345215,
+            -0.4795503616333008,
+            3.8492181301116943
+          ],
+          "probabilities": [
+            0.0050274962559342384,
+            0.030346551910042763,
+            0.9646259546279907
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -0.4125616252422333,
+            -1.8162871599197388,
+            2.0607733726501465,
+            -0.9789487719535828
+          ],
+          "probabilities": [
+            0.1599595844745636,
+            0.0720541924238205,
+            0.6520386934280396,
+            0.11594754457473755
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            1.0721412897109985,
+            0.7906872630119324
+          ],
+          "probabilities": [
+            0.5354167819023132,
+            0.4645831882953644
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            2.0607821941375732,
+            2.021547317504883,
+            0.8166435956954956
+          ],
+          "probabilities": [
+            0.42750322818756104,
+            0.414308100938797,
+            0.15818865597248077
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -1.3764609098434448,
+            0.5943278670310974,
+            -1.075298547744751,
+            -0.2752108573913574
+          ],
+          "probabilities": [
+            0.14045092463493347,
+            0.4303194582462311,
+            0.16666041314601898,
+            0.2625690996646881
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            -2.0853731632232666,
+            1.1535885334014893
+          ],
+          "probabilities": [
+            0.16341495513916016,
+            0.8365850448608398
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            3.973501682281494,
+            -0.09928068518638611,
+            -1.5792734622955322
+          ],
+          "probabilities": [
+            0.9519913792610168,
+            0.03674688562750816,
+            0.01126175094395876
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "billing",
+              "probabilities": {
+                "billing": 0.9014,
+                "technical": 0.0373,
+                "sales": 0.0269,
+                "other": 0.0344
+              },
+              "confidence": 0.6903,
+              "answer_confidence": 0.9014,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.3194,
+              "confidence": 0.6806,
+              "answer_confidence": 0.6806,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.3733,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.0679,
+                "1": 0.4908,
+                "2": 0.4413
+              },
+              "confidence": 0.1871,
+              "answer_confidence": 0.4908,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 147,
+            "output_tokens": 0,
+            "state_tokens": 12,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "technical",
+              "probabilities": {
+                "billing": 0.0184,
+                "technical": 0.891,
+                "sales": 0.0349,
+                "other": 0.0557
+              },
+              "confidence": 0.6722,
+              "answer_confidence": 0.891,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.923,
+              "confidence": 0.923,
+              "answer_confidence": 0.923,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.9596,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.005,
+                "1": 0.0303,
+                "2": 0.9646
+              },
+              "confidence": 0.8476,
+              "answer_confidence": 0.9646,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 159,
+            "output_tokens": 0,
+            "state_tokens": 16,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "sales",
+              "probabilities": {
+                "billing": 0.16,
+                "technical": 0.0721,
+                "sales": 0.652,
+                "other": 0.1159
+              },
+              "confidence": 0.2704,
+              "answer_confidence": 0.652,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.4646,
+              "confidence": 0.5354,
+              "answer_confidence": 0.5354,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 0.7307,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.4275,
+                "1": 0.4143,
+                "2": 0.1582
+              },
+              "confidence": 0.0715,
+              "answer_confidence": 0.4275,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 216,
+            "output_tokens": 0,
+            "state_tokens": 35,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "technical",
+              "probabilities": {
+                "billing": 0.1405,
+                "technical": 0.4303,
+                "sales": 0.1667,
+                "other": 0.2626
+              },
+              "confidence": 0.0707,
+              "answer_confidence": 0.4303,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.8366,
+              "confidence": 0.8366,
+              "answer_confidence": 0.8366,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 0.0593,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.952,
+                "1": 0.0367,
+                "2": 0.0113
+              },
+              "confidence": 0.8009,
+              "answer_confidence": 0.952,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 249,
+            "output_tokens": 0,
+            "state_tokens": 46,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        }
+      ],
+      "environment": {
+        "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+        "platform": "Windows-11-10.0.26300-SP0",
+        "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+        "logical_cpus": 32,
+        "threads": 4,
+        "torch_interop_threads": 1,
+        "numpy": "2.5.3",
+        "torch": "2.14.1+cpu"
+      },
+      "imported_torch": true,
+      "imported_transformers": true,
+      "process_repeat": 2
+    },
+    {
+      "variant": "baseline",
+      "runtime": "torch",
+      "source": "C:\\Users\\TGUNDHUS-PWR\\Documents\\Personal\\Github\\Laya-Pro\\.venv\\loading-baseline-verified",
+      "import_s": 1.1605284000979736,
+      "agent_load_s": 3.1400681000668555,
+      "first_predict_s": 0.25403589999768883,
+      "startup_to_first_answer_s": 4.554858400020748,
+      "prediction_ms": [
+        245.47209998127073,
+        244.6083000395447,
+        244.68280002474785,
+        243.4402999933809,
+        245.31599995680153
+      ],
+      "forward_ms": [
+        244.04120002873242,
+        244.37580001540482,
+        242.25569993723184,
+        244.87980001140386,
+        244.687799946405
+      ],
+      "memory_stages": {
+        "after_imports": {
+          "working_set_bytes": 205717504,
+          "private_commit_bytes": 288927744,
+          "peak_working_set_bytes": 205717504,
+          "peak_commit_bytes": 288927744,
+          "page_faults": 51970,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_load": {
+          "working_set_bytes": 2025582592,
+          "private_commit_bytes": 2737696768,
+          "peak_working_set_bytes": 2868174848,
+          "peak_commit_bytes": 4426100736,
+          "page_faults": 758509,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_first_answer": {
+          "working_set_bytes": 2047455232,
+          "private_commit_bytes": 2779271168,
+          "peak_working_set_bytes": 2868174848,
+          "peak_commit_bytes": 4426100736,
+          "page_faults": 763880,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_warm_predictions": {
+          "working_set_bytes": 2052308992,
+          "private_commit_bytes": 2779271168,
+          "peak_working_set_bytes": 2868174848,
+          "peak_commit_bytes": 4426100736,
+          "page_faults": 765065,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_parity_and_forward": {
+          "working_set_bytes": 2066567168,
+          "private_commit_bytes": 2843820032,
+          "peak_working_set_bytes": 2868174848,
+          "peak_commit_bytes": 4426100736,
+          "page_faults": 771209,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        }
+      },
+      "parameter_dtypes": [
+        "torch.float32"
+      ],
+      "loading_mode": "legacy_copy",
+      "records": [
+        {
+          "question": "team",
+          "logits": [
+            3.5609469413757324,
+            -2.0456695556640625,
+            -2.622833728790283,
+            -2.185610055923462
+          ],
+          "probabilities": [
+            0.9014115333557129,
+            0.03728753700852394,
+            0.026863086968660355,
+            0.03443778306245804
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            2.051953077316284,
+            0.5513394474983215
+          ],
+          "probabilities": [
+            0.6806122064590454,
+            0.3193877637386322
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            -0.7180005311965942,
+            1.7566019296646118,
+            1.6235072612762451
+          ],
+          "probabilities": [
+            0.06793804466724396,
+            0.4907897710800171,
+            0.44127213954925537
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -3.2827701568603516,
+            3.5479512214660645,
+            -2.1538290977478027,
+            -1.330501675605774
+          ],
+          "probabilities": [
+            0.018385132774710655,
+            0.8909597396850586,
+            0.0349154956638813,
+            0.05573956295847893
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            -3.4796037673950195,
+            1.4474461078643799
+          ],
+          "probabilities": [
+            0.07697725296020508,
+            0.9230227470397949
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            -2.7293219566345215,
+            -0.4795503616333008,
+            3.8492181301116943
+          ],
+          "probabilities": [
+            0.0050274962559342384,
+            0.030346551910042763,
+            0.9646259546279907
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -0.4125616252422333,
+            -1.8162871599197388,
+            2.0607733726501465,
+            -0.9789487719535828
+          ],
+          "probabilities": [
+            0.1599595844745636,
+            0.0720541924238205,
+            0.6520386934280396,
+            0.11594754457473755
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            1.0721412897109985,
+            0.7906872630119324
+          ],
+          "probabilities": [
+            0.5354167819023132,
+            0.4645831882953644
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            2.0607821941375732,
+            2.021547317504883,
+            0.8166435956954956
+          ],
+          "probabilities": [
+            0.42750322818756104,
+            0.414308100938797,
+            0.15818865597248077
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -1.3764609098434448,
+            0.5943278670310974,
+            -1.075298547744751,
+            -0.2752108573913574
+          ],
+          "probabilities": [
+            0.14045092463493347,
+            0.4303194582462311,
+            0.16666041314601898,
+            0.2625690996646881
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            -2.0853731632232666,
+            1.1535885334014893
+          ],
+          "probabilities": [
+            0.16341495513916016,
+            0.8365850448608398
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            3.973501682281494,
+            -0.09928068518638611,
+            -1.5792734622955322
+          ],
+          "probabilities": [
+            0.9519913792610168,
+            0.03674688562750816,
+            0.01126175094395876
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "billing",
+              "probabilities": {
+                "billing": 0.9014,
+                "technical": 0.0373,
+                "sales": 0.0269,
+                "other": 0.0344
+              },
+              "confidence": 0.6903,
+              "answer_confidence": 0.9014,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.3194,
+              "confidence": 0.6806,
+              "answer_confidence": 0.6806,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.3733,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.0679,
+                "1": 0.4908,
+                "2": 0.4413
+              },
+              "confidence": 0.1871,
+              "answer_confidence": 0.4908,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 147,
+            "output_tokens": 0,
+            "state_tokens": 12,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "technical",
+              "probabilities": {
+                "billing": 0.0184,
+                "technical": 0.891,
+                "sales": 0.0349,
+                "other": 0.0557
+              },
+              "confidence": 0.6722,
+              "answer_confidence": 0.891,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.923,
+              "confidence": 0.923,
+              "answer_confidence": 0.923,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.9596,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.005,
+                "1": 0.0303,
+                "2": 0.9646
+              },
+              "confidence": 0.8476,
+              "answer_confidence": 0.9646,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 159,
+            "output_tokens": 0,
+            "state_tokens": 16,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "sales",
+              "probabilities": {
+                "billing": 0.16,
+                "technical": 0.0721,
+                "sales": 0.652,
+                "other": 0.1159
+              },
+              "confidence": 0.2704,
+              "answer_confidence": 0.652,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.4646,
+              "confidence": 0.5354,
+              "answer_confidence": 0.5354,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 0.7307,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.4275,
+                "1": 0.4143,
+                "2": 0.1582
+              },
+              "confidence": 0.0715,
+              "answer_confidence": 0.4275,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 216,
+            "output_tokens": 0,
+            "state_tokens": 35,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "technical",
+              "probabilities": {
+                "billing": 0.1405,
+                "technical": 0.4303,
+                "sales": 0.1667,
+                "other": 0.2626
+              },
+              "confidence": 0.0707,
+              "answer_confidence": 0.4303,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.8366,
+              "confidence": 0.8366,
+              "answer_confidence": 0.8366,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 0.0593,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.952,
+                "1": 0.0367,
+                "2": 0.0113
+              },
+              "confidence": 0.8009,
+              "answer_confidence": 0.952,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 249,
+            "output_tokens": 0,
+            "state_tokens": 46,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        }
+      ],
+      "environment": {
+        "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+        "platform": "Windows-11-10.0.26300-SP0",
+        "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+        "logical_cpus": 32,
+        "threads": 4,
+        "torch_interop_threads": 1,
+        "numpy": "2.5.3",
+        "torch": "2.14.1+cpu"
+      },
+      "imported_torch": true,
+      "imported_transformers": true,
+      "process_repeat": 2
+    },
+    {
+      "variant": "baseline",
+      "runtime": "torch",
+      "source": "C:\\Users\\TGUNDHUS-PWR\\Documents\\Personal\\Github\\Laya-Pro\\.venv\\loading-baseline-verified",
+      "import_s": 1.1622349999379367,
+      "agent_load_s": 3.193800500012003,
+      "first_predict_s": 0.24933979997877032,
+      "startup_to_first_answer_s": 4.605612899991684,
+      "prediction_ms": [
+        243.63060004543513,
+        245.15740002971143,
+        244.48469991330057,
+        245.56200008373708,
+        245.40589994285256
+      ],
+      "forward_ms": [
+        244.89800003357232,
+        245.23649993352592,
+        243.7389000551775,
+        243.59349999576807,
+        244.9423000216484
+      ],
+      "memory_stages": {
+        "after_imports": {
+          "working_set_bytes": 205074432,
+          "private_commit_bytes": 288116736,
+          "peak_working_set_bytes": 205074432,
+          "peak_commit_bytes": 288116736,
+          "page_faults": 51803,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_load": {
+          "working_set_bytes": 2025025536,
+          "private_commit_bytes": 2735951872,
+          "peak_working_set_bytes": 2867617792,
+          "peak_commit_bytes": 4424351744,
+          "page_faults": 757681,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_first_answer": {
+          "working_set_bytes": 2046926848,
+          "private_commit_bytes": 2777559040,
+          "peak_working_set_bytes": 2867617792,
+          "peak_commit_bytes": 4424351744,
+          "page_faults": 763058,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_warm_predictions": {
+          "working_set_bytes": 2052521984,
+          "private_commit_bytes": 2777559040,
+          "peak_working_set_bytes": 2867617792,
+          "peak_commit_bytes": 4424351744,
+          "page_faults": 764424,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_parity_and_forward": {
+          "working_set_bytes": 2067296256,
+          "private_commit_bytes": 2842435584,
+          "peak_working_set_bytes": 2867617792,
+          "peak_commit_bytes": 4424351744,
+          "page_faults": 769291,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        }
+      },
+      "parameter_dtypes": [
+        "torch.float32"
+      ],
+      "loading_mode": "legacy_copy",
+      "records": [
+        {
+          "question": "team",
+          "logits": [
+            3.5609469413757324,
+            -2.0456695556640625,
+            -2.622833728790283,
+            -2.185610055923462
+          ],
+          "probabilities": [
+            0.9014115333557129,
+            0.03728753700852394,
+            0.026863086968660355,
+            0.03443778306245804
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            2.051953077316284,
+            0.5513394474983215
+          ],
+          "probabilities": [
+            0.6806122064590454,
+            0.3193877637386322
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            -0.7180005311965942,
+            1.7566019296646118,
+            1.6235072612762451
+          ],
+          "probabilities": [
+            0.06793804466724396,
+            0.4907897710800171,
+            0.44127213954925537
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -3.2827701568603516,
+            3.5479512214660645,
+            -2.1538290977478027,
+            -1.330501675605774
+          ],
+          "probabilities": [
+            0.018385132774710655,
+            0.8909597396850586,
+            0.0349154956638813,
+            0.05573956295847893
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            -3.4796037673950195,
+            1.4474461078643799
+          ],
+          "probabilities": [
+            0.07697725296020508,
+            0.9230227470397949
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            -2.7293219566345215,
+            -0.4795503616333008,
+            3.8492181301116943
+          ],
+          "probabilities": [
+            0.0050274962559342384,
+            0.030346551910042763,
+            0.9646259546279907
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -0.4125616252422333,
+            -1.8162871599197388,
+            2.0607733726501465,
+            -0.9789487719535828
+          ],
+          "probabilities": [
+            0.1599595844745636,
+            0.0720541924238205,
+            0.6520386934280396,
+            0.11594754457473755
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            1.0721412897109985,
+            0.7906872630119324
+          ],
+          "probabilities": [
+            0.5354167819023132,
+            0.4645831882953644
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            2.0607821941375732,
+            2.021547317504883,
+            0.8166435956954956
+          ],
+          "probabilities": [
+            0.42750322818756104,
+            0.414308100938797,
+            0.15818865597248077
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -1.3764609098434448,
+            0.5943278670310974,
+            -1.075298547744751,
+            -0.2752108573913574
+          ],
+          "probabilities": [
+            0.14045092463493347,
+            0.4303194582462311,
+            0.16666041314601898,
+            0.2625690996646881
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            -2.0853731632232666,
+            1.1535885334014893
+          ],
+          "probabilities": [
+            0.16341495513916016,
+            0.8365850448608398
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            3.973501682281494,
+            -0.09928068518638611,
+            -1.5792734622955322
+          ],
+          "probabilities": [
+            0.9519913792610168,
+            0.03674688562750816,
+            0.01126175094395876
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "billing",
+              "probabilities": {
+                "billing": 0.9014,
+                "technical": 0.0373,
+                "sales": 0.0269,
+                "other": 0.0344
+              },
+              "confidence": 0.6903,
+              "answer_confidence": 0.9014,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.3194,
+              "confidence": 0.6806,
+              "answer_confidence": 0.6806,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.3733,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.0679,
+                "1": 0.4908,
+                "2": 0.4413
+              },
+              "confidence": 0.1871,
+              "answer_confidence": 0.4908,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 147,
+            "output_tokens": 0,
+            "state_tokens": 12,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "technical",
+              "probabilities": {
+                "billing": 0.0184,
+                "technical": 0.891,
+                "sales": 0.0349,
+                "other": 0.0557
+              },
+              "confidence": 0.6722,
+              "answer_confidence": 0.891,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.923,
+              "confidence": 0.923,
+              "answer_confidence": 0.923,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.9596,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.005,
+                "1": 0.0303,
+                "2": 0.9646
+              },
+              "confidence": 0.8476,
+              "answer_confidence": 0.9646,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 159,
+            "output_tokens": 0,
+            "state_tokens": 16,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "sales",
+              "probabilities": {
+                "billing": 0.16,
+                "technical": 0.0721,
+                "sales": 0.652,
+                "other": 0.1159
+              },
+              "confidence": 0.2704,
+              "answer_confidence": 0.652,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.4646,
+              "confidence": 0.5354,
+              "answer_confidence": 0.5354,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 0.7307,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.4275,
+                "1": 0.4143,
+                "2": 0.1582
+              },
+              "confidence": 0.0715,
+              "answer_confidence": 0.4275,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 216,
+            "output_tokens": 0,
+            "state_tokens": 35,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "technical",
+              "probabilities": {
+                "billing": 0.1405,
+                "technical": 0.4303,
+                "sales": 0.1667,
+                "other": 0.2626
+              },
+              "confidence": 0.0707,
+              "answer_confidence": 0.4303,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.8366,
+              "confidence": 0.8366,
+              "answer_confidence": 0.8366,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 0.0593,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.952,
+                "1": 0.0367,
+                "2": 0.0113
+              },
+              "confidence": 0.8009,
+              "answer_confidence": 0.952,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 249,
+            "output_tokens": 0,
+            "state_tokens": 46,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        }
+      ],
+      "environment": {
+        "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+        "platform": "Windows-11-10.0.26300-SP0",
+        "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+        "logical_cpus": 32,
+        "threads": 4,
+        "torch_interop_threads": 1,
+        "numpy": "2.5.3",
+        "torch": "2.14.1+cpu"
+      },
+      "imported_torch": true,
+      "imported_transformers": true,
+      "process_repeat": 3
+    },
+    {
+      "variant": "current",
+      "runtime": "torch",
+      "source": "C:\\Users\\TGUNDHUS-PWR\\Documents\\Personal\\Github\\Laya-Pro",
+      "import_s": 1.1785177000565454,
+      "agent_load_s": 3.1928009000839666,
+      "first_predict_s": 0.24943700002040714,
+      "startup_to_first_answer_s": 4.620959900086746,
+      "prediction_ms": [
+        247.64329998288304,
+        245.20749994553626,
+        244.86800003796816,
+        244.59909996949136,
+        244.68830006662756
+      ],
+      "forward_ms": [
+        244.7638000594452,
+        245.356599916704,
+        244.25530002918094,
+        243.3768999762833,
+        244.34540001675487
+      ],
+      "memory_stages": {
+        "after_imports": {
+          "working_set_bytes": 204603392,
+          "private_commit_bytes": 287821824,
+          "peak_working_set_bytes": 204603392,
+          "peak_commit_bytes": 287821824,
+          "page_faults": 51694,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_load": {
+          "working_set_bytes": 2024386560,
+          "private_commit_bytes": 2735919104,
+          "peak_working_set_bytes": 2027450368,
+          "peak_commit_bytes": 4424441856,
+          "page_faults": 759958,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_first_answer": {
+          "working_set_bytes": 2046345216,
+          "private_commit_bytes": 2777747456,
+          "peak_working_set_bytes": 2046345216,
+          "peak_commit_bytes": 4424441856,
+          "page_faults": 765349,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_warm_predictions": {
+          "working_set_bytes": 2051198976,
+          "private_commit_bytes": 2777747456,
+          "peak_working_set_bytes": 2051198976,
+          "peak_commit_bytes": 4424441856,
+          "page_faults": 766534,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        },
+        "after_parity_and_forward": {
+          "working_set_bytes": 2065391616,
+          "private_commit_bytes": 2842300416,
+          "peak_working_set_bytes": 2065391616,
+          "peak_commit_bytes": 4424441856,
+          "page_faults": 772662,
+          "source": "Windows GetProcessMemoryInfo PROCESS_MEMORY_COUNTERS_EX"
+        }
+      },
+      "parameter_dtypes": [
+        "torch.float32"
+      ],
+      "loading_mode": "stream",
+      "records": [
+        {
+          "question": "team",
+          "logits": [
+            3.5609469413757324,
+            -2.0456695556640625,
+            -2.622833728790283,
+            -2.185610055923462
+          ],
+          "probabilities": [
+            0.9014115333557129,
+            0.03728753700852394,
+            0.026863086968660355,
+            0.03443778306245804
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            2.051953077316284,
+            0.5513394474983215
+          ],
+          "probabilities": [
+            0.6806122064590454,
+            0.3193877637386322
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            -0.7180005311965942,
+            1.7566019296646118,
+            1.6235072612762451
+          ],
+          "probabilities": [
+            0.06793804466724396,
+            0.4907897710800171,
+            0.44127213954925537
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -3.2827701568603516,
+            3.5479512214660645,
+            -2.1538290977478027,
+            -1.330501675605774
+          ],
+          "probabilities": [
+            0.018385132774710655,
+            0.8909597396850586,
+            0.0349154956638813,
+            0.05573956295847893
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            -3.4796037673950195,
+            1.4474461078643799
+          ],
+          "probabilities": [
+            0.07697725296020508,
+            0.9230227470397949
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            -2.7293219566345215,
+            -0.4795503616333008,
+            3.8492181301116943
+          ],
+          "probabilities": [
+            0.0050274962559342384,
+            0.030346551910042763,
+            0.9646259546279907
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -0.4125616252422333,
+            -1.8162871599197388,
+            2.0607733726501465,
+            -0.9789487719535828
+          ],
+          "probabilities": [
+            0.1599595844745636,
+            0.0720541924238205,
+            0.6520386934280396,
+            0.11594754457473755
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            1.0721412897109985,
+            0.7906872630119324
+          ],
+          "probabilities": [
+            0.5354167819023132,
+            0.4645831882953644
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            2.0607821941375732,
+            2.021547317504883,
+            0.8166435956954956
+          ],
+          "probabilities": [
+            0.42750322818756104,
+            0.414308100938797,
+            0.15818865597248077
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "team",
+          "logits": [
+            -1.3764609098434448,
+            0.5943278670310974,
+            -1.075298547744751,
+            -0.2752108573913574
+          ],
+          "probabilities": [
+            0.14045092463493347,
+            0.4303194582462311,
+            0.16666041314601898,
+            0.2625690996646881
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "urgent",
+          "logits": [
+            -2.0853731632232666,
+            1.1535885334014893
+          ],
+          "probabilities": [
+            0.16341495513916016,
+            0.8365850448608398
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "question": "severity",
+          "logits": [
+            3.973501682281494,
+            -0.09928068518638611,
+            -1.5792734622955322
+          ],
+          "probabilities": [
+            0.9519913792610168,
+            0.03674688562750816,
+            0.01126175094395876
+          ],
+          "action_probabilities": [
+            1.0,
+            0.0
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "billing",
+              "probabilities": {
+                "billing": 0.9014,
+                "technical": 0.0373,
+                "sales": 0.0269,
+                "other": 0.0344
+              },
+              "confidence": 0.6903,
+              "answer_confidence": 0.9014,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.3194,
+              "confidence": 0.6806,
+              "answer_confidence": 0.6806,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.3733,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.0679,
+                "1": 0.4908,
+                "2": 0.4413
+              },
+              "confidence": 0.1871,
+              "answer_confidence": 0.4908,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 147,
+            "output_tokens": 0,
+            "state_tokens": 12,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "technical",
+              "probabilities": {
+                "billing": 0.0184,
+                "technical": 0.891,
+                "sales": 0.0349,
+                "other": 0.0557
+              },
+              "confidence": 0.6722,
+              "answer_confidence": 0.891,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.923,
+              "confidence": 0.923,
+              "answer_confidence": 0.923,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.9596,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.005,
+                "1": 0.0303,
+                "2": 0.9646
+              },
+              "confidence": 0.8476,
+              "answer_confidence": 0.9646,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 159,
+            "output_tokens": 0,
+            "state_tokens": 16,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "sales",
+              "probabilities": {
+                "billing": 0.16,
+                "technical": 0.0721,
+                "sales": 0.652,
+                "other": 0.1159
+              },
+              "confidence": 0.2704,
+              "answer_confidence": 0.652,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.4646,
+              "confidence": 0.5354,
+              "answer_confidence": 0.5354,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 0.7307,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.4275,
+                "1": 0.4143,
+                "2": 0.1582
+              },
+              "confidence": 0.0715,
+              "answer_confidence": 0.4275,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 216,
+            "output_tokens": 0,
+            "state_tokens": 35,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        },
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "team": {
+              "type": "choice",
+              "choice": "technical",
+              "probabilities": {
+                "billing": 0.1405,
+                "technical": 0.4303,
+                "sales": 0.1667,
+                "other": 0.2626
+              },
+              "confidence": 0.0707,
+              "answer_confidence": 0.4303,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "urgent": {
+              "type": "noul",
+              "noul": 0.8366,
+              "confidence": 0.8366,
+              "answer_confidence": 0.8366,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "severity": {
+              "type": "score",
+              "score": 0.0593,
+              "legend": {
+                "0": "no active problem",
+                "1": "minor inconvenience",
+                "2": "service unavailable"
+              },
+              "probabilities": {
+                "0": 0.952,
+                "1": 0.0367,
+                "2": 0.0113
+              },
+              "confidence": 0.8009,
+              "answer_confidence": 0.952,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 249,
+            "output_tokens": 0,
+            "state_tokens": 46,
+            "state_tokens_dropped": 0,
+            "truncated": false,
+            "truncated_questions": []
+          }
+        }
+      ],
+      "environment": {
+        "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+        "platform": "Windows-11-10.0.26300-SP0",
+        "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+        "logical_cpus": 32,
+        "threads": 4,
+        "torch_interop_threads": 1,
+        "numpy": "2.5.3",
+        "torch": "2.14.1+cpu"
+      },
+      "imported_torch": true,
+      "imported_transformers": true,
+      "process_repeat": 3
+    }
+  ],
+  "parity_vs_first_baseline": [
+    {
+      "max_abs_logits": 0.0,
+      "max_abs_probabilities": 0.0,
+      "max_abs_action_probabilities": 0.0,
+      "answers_equal": true
+    },
+    {
+      "max_abs_logits": 0.0,
+      "max_abs_probabilities": 0.0,
+      "max_abs_action_probabilities": 0.0,
+      "answers_equal": true
+    },
+    {
+      "max_abs_logits": 0.0,
+      "max_abs_probabilities": 0.0,
+      "max_abs_action_probabilities": 0.0,
+      "answers_equal": true
+    },
+    {
+      "max_abs_logits": 0.0,
+      "max_abs_probabilities": 0.0,
+      "max_abs_action_probabilities": 0.0,
+      "answers_equal": true
+    },
+    {
+      "max_abs_logits": 0.0,
+      "max_abs_probabilities": 0.0,
+      "max_abs_action_probabilities": 0.0,
+      "answers_equal": true
+    },
+    {
+      "max_abs_logits": 0.0,
+      "max_abs_probabilities": 0.0,
+      "max_abs_action_probabilities": 0.0,
+      "answers_equal": true
+    }
+  ],
+  "post_measurement_source_normalization": {
+    "change": "Removed trailing blank lines only after measurement; original executed-source hashes remain unchanged above. Normalized hashes ignore CRLF/LF and trailing empty lines.",
+    "files": {
+      "laya/checkpoint.py": {
+        "measured_sha256": "a79ca2cb6fd027920048fb76eb82dd4c78ad4a0f8255aadfd3b07471d1701520",
+        "final_sha256": "46dcb708bb036963aef713681c8c63bcd6241b5c4b2305b62551139e9a57b0a4",
+        "normalized_sha256": "4f3821a01a3eacd347502c64619c43a20122267a643dd5ccc491009b5210e525"
+      },
+      "laya/inference.py": {
+        "measured_sha256": "5f3515463aa8db126b8de0ed6c92ef9840cbb54bb977590de6f5edc6dcc069f3",
+        "final_sha256": "69bcada832246a3ed3e42d5a556737e4e2642e1b4cc42a1d73be0f7348fe4deb",
+        "normalized_sha256": "c5b27e024843ebb2e0beccc56c9776151baae127740eead6e1074e6d59a3ee85"
+      },
+      "laya/inference_common.py": {
+        "measured_sha256": "6e138d9ae766b23f01f59aea617e53395e13ae8bbb66c81825092c4a32b83693",
+        "final_sha256": "ce869a272512d6cfc838878e7a72de089f878191672692a47c897ca6aa589ea7",
+        "normalized_sha256": "a780a619169a8a4e8b48d378bcc7752b0c8d77f75f50a25b3127c3a7fcbbf9dd"
+      }
+    }
+  }
+}
