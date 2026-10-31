@@ -130,6 +130,7 @@ PYTEST_SUITES = [
     "tests/test_performance_modes.py",
     "tests/test_performance_cli.py",
     "tests/test_performance_servers.py",
+    "tests/test_loading_memory.py",
 ]
 
 

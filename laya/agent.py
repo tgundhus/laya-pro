@@ -813,10 +813,15 @@ class Agent(HookRegistry):
                                  pretrained=False)
 
         # Load weights and verify architectural compatibility
+        from ._loading import _checkpoint_identity, _load_weights
+        weights_identity = _checkpoint_identity(weights_path)
         weights = load_file(weights_path)
         _verify_compatibility(self.model, self.cfg, weights, model_id_or_path)
 
-        self.model.load_state_dict(weights, strict=True)
+        self._loading_mode = _load_weights(self.model, weights, weights_path, weights_identity)
+        # In the copy fallback the mapping owns a second set of weights; even after
+        # assignment it would retain CPU storage while device placement allocates another.
+        del weights
 
         # ModernBERT's reference_compile defaults to "auto" and will torch.compile the encoder.
         # That is a loss for the batch sizes Laya runs (a handful of questions per call) and can
