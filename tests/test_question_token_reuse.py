@@ -11,7 +11,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from laya import common  # noqa: E402
+from laya import inference_common as common  # noqa: E402
 from laya.agent import Agent  # noqa: E402
 from laya.common import _reuse_question_tokens, build_sequence  # noqa: E402
 

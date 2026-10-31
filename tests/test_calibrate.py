@@ -763,7 +763,7 @@ def _fields_in(text):
     return found
 
 
-_calibrate_tree = ast.parse(inspect.getsource(_calibrate))
+_calibrate_tree = ast.parse(inspect.getsource(inspect.getmodule(apply_calibration_payload)))
 _apply_fn = next(n for n in ast.walk(_calibrate_tree)
                  if isinstance(n, ast.FunctionDef) and n.name == "apply_calibration_payload")
 

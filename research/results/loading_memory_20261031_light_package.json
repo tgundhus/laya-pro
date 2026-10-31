@@ -1,0 +1,98 @@
+{
+  "distributions": {
+    "anyio": {
+      "version": "4.15.1",
+      "bytes": 1285461
+    },
+    "click": {
+      "version": "8.5.0",
+      "bytes": 954669
+    },
+    "colorama": {
+      "version": "0.4.6",
+      "bytes": 169714
+    },
+    "filelock": {
+      "version": "4.2.5",
+      "bytes": 1222922
+    },
+    "flatbuffers": {
+      "version": "25.12.19",
+      "bytes": 220928
+    },
+    "fsspec": {
+      "version": "2026.9.0",
+      "bytes": 1826213
+    },
+    "h11": {
+      "version": "0.16.0",
+      "bytes": 186139
+    },
+    "hf-xet": {
+      "version": "1.8.0",
+      "bytes": 9823117
+    },
+    "httpcore2": {
+      "version": "2.16.0",
+      "bytes": 664642
+    },
+    "httpx2": {
+      "version": "2.16.0",
+      "bytes": 1005131
+    },
+    "huggingface_hub": {
+      "version": "2.4.0",
+      "bytes": 7051664
+    },
+    "idna": {
+      "version": "3.20",
+      "bytes": 626758
+    },
+    "laya-pro-onnx": {
+      "version": "0.3.29",
+      "bytes": 552981
+    },
+    "numpy": {
+      "version": "2.5.4",
+      "bytes": 54180478
+    },
+    "onnxruntime": {
+      "version": "1.31.1",
+      "bytes": 47929048
+    },
+    "packaging": {
+      "version": "26.3",
+      "bytes": 996364
+    },
+    "pip": {
+      "version": "25.0.1",
+      "bytes": 11454412
+    },
+    "protobuf": {
+      "version": "7.36.2",
+      "bytes": 2750156
+    },
+    "PyYAML": {
+      "version": "6.0.3",
+      "bytes": 730936
+    },
+    "tokenizers": {
+      "version": "0.23.3",
+      "bytes": 8318995
+    },
+    "tqdm": {
+      "version": "4.70.1",
+      "bytes": 558217
+    },
+    "truststore": {
+      "version": "0.10.5",
+      "bytes": 122634
+    },
+    "typing_extensions": {
+      "version": "4.16.0",
+      "bytes": 349505
+    }
+  },
+  "wheel_bytes": 88182,
+  "sdist_bytes": 82867
+}

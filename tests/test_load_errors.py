@@ -38,7 +38,7 @@ from tokenizers.models import WordLevel  # noqa: E402
 from tokenizers.pre_tokenizers import Whitespace  # noqa: E402
 from transformers import BertConfig, BertModel, PreTrainedTokenizerFast  # noqa: E402
 
-from laya import load  # noqa: E402
+from laya import Agent, load  # noqa: E402
 from laya.common import DecisionModel  # noqa: E402
 from laya.router import Router  # noqa: E402
 
@@ -361,7 +361,7 @@ check("39/no sentence sends a rejected question to the decision head",
 # fit a hundred other raises, and the reader is left pattern-matching the traceback.
 check_true("39/case 3 names the validator that rejects it", "_check_question" in CLAIMS, CLAIMS[:120])
 check_true("39/naming it is possible: the validator is in the runtime",
-           "def _check_question" in AGENT_SRC, "")
+           callable(Agent._check_question) and Agent._check_question.__name__ == "_check_question", "")
 check_true("39/what it reports is the question, as the page says",
            "'q'" in SECTION.get(3, ""), SECTION.get(3, "")[:120])
 

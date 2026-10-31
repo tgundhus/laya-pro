@@ -12,6 +12,15 @@ For opt-in resource budgets on current code, see [Performance modes](performance
 Modes adjust threads, batching and model lifecycle without changing precision or input windows;
 the historical stage measurements below use their own stated hardware and settings.
 
+For startup and process memory, the [lightweight ONNX guide](onnx-runtime.md) describes
+the separate inference distribution and the fresh-process loading benchmark. That harness
+includes the first answer so work deferred from loading remains part of startup.
+On the pinned real English CPU checkpoint, bounded loading reduced peak working set
+from 2735.1 to 1970.8 MiB, with unchanged private commit, steady memory and latency.
+The standalone ONNX runtime reduced first-answer startup from 5.374 to 1.782 s on the
+same real graph; warm inference and all 12 typed answers stayed the same. These current
+measurements are separate from the historical random-weight timings below.
+
 `research/scripts/bench_stages.py` wraps a timer around every stage a `Router.predict` call goes
 through and times each scenario twice: once with the timers, to see where the time goes, and
 once without, which is the latency to quote. The figures below come from a 4-core Xeon CPU. The

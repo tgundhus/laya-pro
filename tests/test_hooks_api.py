@@ -70,6 +70,19 @@ HOOK_KEYS = {
     "hooks_timeout": None,
 }
 
+# The lightweight runtime and full package share these inference contracts. Existing imports
+# keep resolving to the canonical functions after the Torch-free extraction.
+from laya import calibration as _calibration, calibrate as _calibrate  # noqa: E402
+from laya import common as _common, inference_common as _inference_common  # noqa: E402
+
+for _name in ("build_sequence", "encode_text", "render_options", "answer_confidence",
+              "confidence_from_probs", "resolve_lang_temperatures", "window_budget"):
+    check_true("common/shared inference alias/" + _name,
+               getattr(_common, _name) is getattr(_inference_common, _name))
+for _name in ("apply_binning_map", "apply_calibration_payload", "calibration_payload"):
+    check_true("calibrate/shared inference alias/" + _name,
+               getattr(_calibrate, _name) is getattr(_calibration, _name))
+
 # --------------------------------------------------------------- constructors
 for label, fn in (("Agent.__init__", Agent.__init__), ("load", load),
                   ("Router.__init__", Router.__init__), ("ONNXAgent.__init__", ONNXAgent.__init__)):

@@ -317,6 +317,40 @@ jobs:
           python -m build sdk/python --outdir sdk/python/dist
           python sdk/python/tests/verify_package.py sdk/python/dist --server-python "$(which python)"
 
+  onnx-runtime:
+    name: ONNX runtime (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: "3.10"
+          - os: ubuntu-latest
+            python: "3.13"
+          - os: windows-latest
+            python: "3.13"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: runtime/onnx/pyproject.toml
+      - name: Install build and offline-fixture tools
+        run: python -m pip install build onnx tokenizers "setuptools>=77"
+      - name: Build and verify inference-only wheel and source distribution
+        run: |
+          python -m build runtime/onnx --outdir runtime/onnx/dist
+          python runtime/onnx/tests/verify_package.py runtime/onnx/dist --report runtime/onnx/verification.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: onnx-runtime-${{ matrix.os }}-py${{ matrix.python }}
+          path: |
+            runtime/onnx/dist/*
+            runtime/onnx/verification.json
+
   build:
     name: package
     runs-on: ubuntu-latest
